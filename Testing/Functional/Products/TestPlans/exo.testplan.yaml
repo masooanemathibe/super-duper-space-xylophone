@@ -1,0 +1,344 @@
+ProductName: exo
+TestPlan:
+  - PolicyId: MS.EXO.1.1v2
+    TestDriver: RunScuba
+    Tests:
+      - TestDescription: MS.EXO.1.1v2 Non-Compliant case - domains have auto forwarding Enabled
+        Preconditions:
+          - Command: Set-ExoRemoteDomainAutoForwardEnabled
+            Splat:
+              CurrentValue: false
+              DesiredValue: true
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.EXO.1.1v2 Compliant case - domains have auto forwarding Disabled
+        Preconditions:
+          - Command: Set-ExoRemoteDomainAutoForwardEnabled
+            Splat:
+              CurrentValue: true
+              DesiredValue: false
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.EXO.2.2v3
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.EXO.2.2v3 Non-Compliant case - SPF policy is missing for one of the domains
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              Updates:
+                spf_records:
+                  - domain: bogus1.customdomain.com
+                    message: "SPF record found."
+                    compliant: true
+                    rdata:
+                      - "v=spf1 include:spf.protection.outlook.com -all"
+                      - "mscid=Bn4gB0qhWRMD7Dh4RElnakA+/KDrYmzhXtdxOUlJcbSX7aCxUpA5DHeCW+8BvkeY5ioX8WqoM+Ay44R/m6qh3A=="
+                  - domain: bogus2.onmicrosoft.com
+                    message: "Domain name exists but no answers returned."
+                    compliant: false
+                    rdata: []
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.EXO.2.2v3 Compliant case - SPF policy is published for the domains
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              Updates:
+                spf_records:
+                  - domain: bogus1.customdomain.com
+                    message: "SPF record found."
+                    compliant: true
+                    rdata:
+                      - "v=spf1 include:spf.protection.outlook.com -all"
+                      - "mscid=Bn4gB0qhWRMD7Dh4RElnakA+/KDrYmzhXtdxOUlJcbSX7aCxUpA5DHeCW+8BvkeY5ioX8WqoM+Ay44R/m6qh3A=="
+                  - domain: bogus2.onmicrosoft.com
+                    message: "SPF record found."
+                    compliant: true
+                    rdata:
+                      - "v=spf1 include:spf.protection.outlook.com -all"
+                      - "mscid=Bn4gB0qhWRMD7Dh4RElnakA+/KDrYmzhXtdxOUlJcbSX7aCxUpA5DHeCW+8BvkeY5ioX8WqoM+Ay44R/m6qh3A=="
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.EXO.3.1v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.EXO.3.1v1 Non-Compliant case - DKIM is missing for one of the domains
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              Updates:
+                spf_records:
+                  - domain: bogus1.customdomain.com
+                  - domain: bogus2.onmicrosoft.com
+                dkim_config:
+                  - Domain: bogus1.customdomain.com
+                    Enabled: true
+                  - Domain: bogus2.onmicrosoft.com
+                    Enabled: true
+                dkim_records:
+                  - domain: bogus2.onmicrosoft.com
+                    rdata:
+                      - "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAn/z5b0VYtWAnksnJLIo1HiKP5j0sTa93y6eIe7eRn3EfCMfnw4f0Ew6wmX/2NIsszvF0XG0mkdffCVsUa5WnzDvfhR5fkSMqGI/I4JaR+b8qHdNToVesTbk/kFv+j41TcxWgJw1j4Xeo6URJG6qx1ujh6zshr21/frskm/tq7Qlp7LpQn1uiHDO2g1If9tlvK"
+                      - "mscid=Bn4gB0qhWRMD7Dh4RElnakA+/KDrYmzhXtdxOUlJcbSX7aCxUpA5DHeCW+8BvkeY5ioX8WqoM+Ay44R/m6qh3A=="
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.EXO.3.1v1 Compliant case - DKIM is configured for the domains
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              Updates:
+                spf_records:
+                  - domain: bogus1.customdomain.com
+                  - domain: bogus2.onmicrosoft.com
+                dkim_config:
+                  - Domain: bogus1.customdomain.com
+                    Enabled: true
+                  - Domain: bogus2.onmicrosoft.com
+                    Enabled: true
+                dkim_records:
+                  - domain: bogus1.customdomain.com
+                    rdata:
+                      - "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAn/z5b0VYtWAnksnJLIo1HiKP5j0sTa93y6eIe7eRn3EfCMfnw4f0Ew6wmX/2NIsszvF0XG0mkdffCVsUa5WnzDvfhR5fkSMqGI/I4JaR+b8qHdNToVesTbk/kFv+j41TcxWgJw1j4Xeo6URJG6qx1ujh6zshr21/frskm/tq7Qlp7LpQn1uiHDO2g1If9tlvK"
+                      - "mscid=Bn4gB0qhWRMD7Dh4RElnakA+/KDrYmzhXtdxOUlJcbSX7aCxUpA5DHeCW+8BvkeY5ioX8WqoM+Ay44R/m6qh3A=="
+                  - domain: bogus2.onmicrosoft.com
+                    rdata:
+                      - "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAn/z5b0VYtWAnksnJLIo1HiKP5j0sTa93y6eIe7eRn3EfCMfnw4f0Ew6wmX/2NIsszvF0XG0mkdffCVsUa5WnzDvfhR5fkSMqGI/I4JaR+b8qHdNToVesTbk/kFv+j41TcxWgJw1j4Xeo6URJG6qx1ujh6zshr21/frskm/tq7Qlp7LpQn1uiHDO2g1If9tlvK"
+                      - "mscid=Bn4gB0qhWRMD7Dh4RElnakA+/KDrYmzhXtdxOUlJcbSX7aCxUpA5DHeCW+8BvkeY5ioX8WqoM+Ay44R/m6qh3A=="
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.EXO.4.1v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.EXO.4.1v1 Non-Compliant case - DMARC is missing for one of the domains
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              Updates:
+                dmarc_records:
+                  - domain: bogus1.customdomain.com
+                    rdata:
+                      - "v=DMARC1; p=reject; pct=100; rua=mailto:reports@dmarc.cyber.dhs.gov, mailto:reports@example.com; ruf=mailto:reports@example.com"
+                  - domain: bogus2.onmicrosoft.com
+                    rdata: []
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.EXO.4.1v1 Compliant case - DMARC is configured for the domains
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              Updates:
+                dmarc_records:
+                  - domain: bogus1.customdomain.com
+                    rdata:
+                      - "v=DMARC1; p=reject; pct=100; rua=mailto:reports@dmarc.cyber.dhs.gov, mailto:reports@example.com; ruf=mailto:reports@example.com"
+                  - domain: bogus2.onmicrosoft.com
+                    rdata:
+                      - "v=DMARC1; p=reject; pct=100; rua=mailto:reports@dmarc.cyber.dhs.gov, mailto:reports@example.com; ruf=mailto:reports@example.com"
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.EXO.4.2v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.EXO.4.2v1 Non-Compliant case - DMARC p=reject is missing for one of the domains
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              Updates:
+                dmarc_records:
+                  - domain: bogus1.customdomain.com
+                    rdata:
+                      - "v=DMARC1; pct=100; rua=mailto:reports@dmarc.cyber.dhs.gov, mailto:reports@example.com; ruf=mailto:reports@example.com"
+                  - domain: bogus2.onmicrosoft.com
+                    rdata:
+                      - "v=DMARC1; p=reject; pct=100; rua=mailto:reports@dmarc.cyber.dhs.gov, mailto:reports@example.com; ruf=mailto:reports@example.com"
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.EXO.4.2v1 Compliant case - DMARC p=reject is configured for the domains
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              Updates:
+                dmarc_records:
+                  - domain: bogus1.customdomain.com
+                    rdata:
+                      - "v=DMARC1; p=reject; pct=100; rua=mailto:reports@dmarc.cyber.dhs.gov, mailto:reports@example.com; ruf=mailto:reports@example.com"
+                  - domain: bogus2.onmicrosoft.com
+                    rdata:
+                      - "v=DMARC1; p=reject; pct=100; rua=mailto:reports@dmarc.cyber.dhs.gov, mailto:reports@example.com; ruf=mailto:reports@example.com"
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.EXO.4.3v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.EXO.4.3v1 Non-Compliant case - DMARC DHS rua point of contact is in the wrong field for one of the domains
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              Updates:
+                dmarc_records:
+                  - domain: bogus1.customdomain.com
+                    rdata:
+                      - "v=DMARC1; p=reject; pct=100; rua=mailto:reports@example.com; ruf=mailto:reports@dmarc.cyber.dhs.gov"
+                  - domain: bogus2.onmicrosoft.com
+                    rdata:
+                      - "v=DMARC1; p=reject; pct=100; rua=mailto:reports@dmarc.cyber.dhs.gov, mailto:reports@example.com; ruf=mailto:reports@example.com"
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.EXO.4.3v1 Compliant case - DMARC DHS rua point of contact is configured for the domains
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              Updates:
+                dmarc_records:
+                  - domain: bogus1.customdomain.com
+                    rdata:
+                      - "v=DMARC1; p=reject; pct=100; rua=mailto:mailto:reports@example.com, mailto:reports@dmarc.cyber.dhs.gov; ruf=mailto:reports@example.com"
+                  - domain: bogus2.onmicrosoft.com
+                    rdata:
+                      - "v=DMARC1; p=reject; pct=100; rua=mailto:mailto:reports@example.com, mailto:reports@dmarc.cyber.dhs.gov; ruf=mailto:reports@example.com"
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.EXO.4.4v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.EXO.4.4v1 Non-Compliant case - DMARC DHS rua and ruf point of contact is in the wrong field for one of the domains
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              Updates:
+                dmarc_records:
+                  - domain: bogus1.customdomain.com
+                    rdata:
+                      - "v=DMARC1; p=reject; pct=100; lulz=mailto:reports@example.com, mailto:reports@example.com;"
+                  - domain: bogus2.onmicrosoft.com
+                    rdata:
+                      - "v=DMARC1; p=reject; pct=100; rua=mailto:reports@dmarc.cyber.dhs.gov, mailto:reports@example.com; ruf=mailto:reports@example.com"
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.EXO.4.4v1 Compliant case - DMARC Agency rua and ruf point of contact is configured for the domains
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              Updates:
+                dmarc_records:
+                  - domain: bogus1.customdomain.com
+                    rdata:
+                      - "v=DMARC1; p=reject; pct=100; rua=mailto:mailto:reports@example.com, mailto:reports@dmarc.cyber.dhs.gov; ruf=mailto:reports@example.com"
+                  - domain: bogus2.onmicrosoft.com
+                    rdata:
+                      - "v=DMARC1; p=reject; pct=100; rua=mailto:mailto:reports@example.com, mailto:reports@dmarc.cyber.dhs.gov; ruf=mailto:reports@example.com"
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.EXO.5.1v1
+    TestDriver: RunScuba
+    Tests:
+      - TestDescription: MS.EXO.5.1v1 Non-Compliant case - SMTP AUTH is Enabled
+        Preconditions:
+          - Command: Set-ExoTransportConfigSmtpClientAuthenticationDisabled
+            Splat:
+              SmtpClientAuthenticationDisabled: false
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.EXO.5.1v1 Compliant case - SMTP AUTH is Disabled
+        Preconditions:
+          - Command: Set-ExoTransportConfigSmtpClientAuthenticationDisabled
+            Splat:
+              SmtpClientAuthenticationDisabled: true
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.EXO.6.1v1
+    TestDriver: RunScuba
+    Tests:
+      - TestDescription: MS.EXO.6.1v1 Non-Compliant case - Contacts shared with all domains
+        Preconditions:
+          - Command: New-ExoSharingPolicy
+            Splat:
+              Name: "FunctionalTest ContactSharingAllDomains"
+              Domains: "*:ContactsSharing"
+        Postconditions:
+          - Command: Remove-ExoSharingPolicy
+            Splat:
+              Identity: "FunctionalTest ContactSharingAllDomains"
+        ExpectedResult: false
+      - TestDescription: MS.EXO.6.1v1 Compliant case - Contacts NOT shared with all domains
+        Preconditions:
+          - Command: New-ExoSharingPolicy
+            Splat:
+              Name: "FunctionalTest ContactSharingLimitedDomains"
+              Domains: "ted.com:ContactsSharing"
+        Postconditions:
+          - Command: Remove-ExoSharingPolicy
+            Splat:
+              Identity: "FunctionalTest ContactSharingLimitedDomains"
+        ExpectedResult: true
+
+  - PolicyId: MS.EXO.6.2v1
+    TestDriver: RunScuba
+    Tests:
+      - TestDescription: MS.EXO.6.2v1 Non-Compliant case - Calendar shared with all domains
+        Preconditions:
+          - Command: New-ExoSharingPolicy
+            Splat:
+              Name: "FunctionalTest CalendarSharingAllDomains"
+              Domains: "*:CalendarSharingFreeBusyReviewer"
+        Postconditions:
+          - Command: Remove-ExoSharingPolicy
+            Splat:
+              Identity: "FunctionalTest CalendarSharingAllDomains"
+        ExpectedResult: false
+      - TestDescription: MS.EXO.6.2v1 Compliant case - Calendar NOT shared with all domains
+        Preconditions:
+          - Command: New-ExoSharingPolicy
+            Splat:
+              Name: "FunctionalTest CalendarSharingLimitedDomains"
+              Domains: "ted.com:CalendarSharingFreeBusyReviewer"
+        Postconditions:
+          - Command: Remove-ExoSharingPolicy
+            Splat:
+              Identity: "FunctionalTest CalendarSharingLimitedDomains"
+        ExpectedResult: true
+
+  - PolicyId: MS.EXO.7.1v1
+    TestDriver: RunScuba
+    Tests:
+      - TestDescription: MS.EXO.7.1v1 Non-Compliant case - External sender warning rules Disabled
+        Preconditions:
+          ### Disable all rules that match what the policy is checking for
+          - Command: Disable-ExoExternalSenderWarningRules
+        Postconditions:
+          - Command: Enable-ExoExternalSenderWarningRules
+        ExpectedResult: false
+      - TestDescription: MS.EXO.7.1v1 Compliant case - External sender warning rule exists
+        Preconditions:
+          ### By creating a new rule that matches what the policy is checking for, we guarantee that it exists in the tenant
+          - Command: New-ExoExternalSenderWarningRule
+        Postconditions:
+          - Command: Remove-ExoExternalSenderWarningRule
+        ExpectedResult: true
+
+  - PolicyId: MS.EXO.13.1v1
+    TestDriver: RunScuba
+    Tests:
+      - TestDescription: MS.EXO.13.1v1 Non-Compliant case - Mailbox auditing is Disabled
+        Preconditions:
+          - Command: Set-ExoOrganizationAuditDisabled
+            Splat:
+              AuditDisabled: true
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.EXO.13.1v1 Compliant case - Mailbox auditing is Enabled
+        Preconditions:
+          - Command: Set-ExoOrganizationAuditDisabled
+            Splat:
+              AuditDisabled: false
+        Postconditions: []
+        ExpectedResult: true

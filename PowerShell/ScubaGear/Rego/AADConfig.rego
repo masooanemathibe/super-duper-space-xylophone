@@ -1,0 +1,1689 @@
+package aad
+import rego.v1
+import data.utils.report.NotCheckedDetails
+import data.utils.report.CheckedSkippedDetails
+import data.utils.report.ReportDetailsBoolean
+import data.utils.report.ReportDetailsString
+import data.utils.key.ContainsValue
+import data.utils.key.FilterArray
+import data.utils.key.ConvertToSetWithKey
+import data.utils.key.ConvertToSet
+import data.utils.aad.ReportFullDetailsArray
+import data.utils.aad.ReportDetailsArrayLicenseWarningCap
+import data.utils.aad.ReportDetailsArrayLicenseWarning
+import data.utils.aad.UserExclusionsFullyExempt
+import data.utils.aad.GroupExclusionsFullyExempt
+import data.utils.aad.AppExclusionsFullyExempt
+import data.utils.aad.GuestUserExclusionsFullyExempt
+import data.utils.aad.Aad2P2Licenses
+import data.utils.aad.IsPhishingResistantMFA
+import data.utils.aad.IsGeneralMFA
+import data.utils.aad.CAPLINK
+import data.utils.aad.DomainReportDetails
+import data.utils.aad.INT_MAX
+import data.utils.key.Count
+import data.utils.aad.EnsureTrimmedArray
+
+
+#############
+# Constants #
+#############
+
+RESTRICTEDACCESS := "2af84b1e-32c8-42b7-82bc-daa82404023b" #gitleaks:allow
+
+LIMITEDACCESS := "10dae51f-b6af-4016-8d66-8c2a99b929b3" #gitleaks:allow
+
+MEMBERUSER := "a0b1b346-4d3e-4e8b-98f8-753987be4970"
+
+
+############
+# MS.AAD.1 #
+############
+
+#
+# MS.AAD.1.1v1
+#--
+
+# If policy matches basic conditions, special conditions,
+# & all exclusions are intentional, save the policy name
+LegacyAuthentication contains CAPolicy.DisplayName if {
+    some CAPolicy in input.conditional_access_policies
+
+    ### Common checks for conditional access policies
+    ContainsValue(CAPolicy.Conditions.Users.IncludeUsers, "All") == true
+    ContainsValue(CAPolicy.Conditions.Applications.IncludeApplications, "All") == true
+    Count(CAPolicy.Conditions.Users.ExcludeRoles) == 0
+    CAPolicy.State == "enabled"
+    ###
+
+    ### Conditional access checks specific to this policy
+    "other" in CAPolicy.Conditions.ClientAppTypes
+    "exchangeActiveSync" in CAPolicy.Conditions.ClientAppTypes
+    "block" in CAPolicy.GrantControls.BuiltInControls
+    ###
+
+    # Only match policies with user and group exclusions per the confile file
+    UserExclusionsFullyExempt(CAPolicy, "MS.AAD.1.1v1") == true
+    GroupExclusionsFullyExempt(CAPolicy, "MS.AAD.1.1v1") == true
+    AppExclusionsFullyExempt(CAPolicy, "MS.AAD.1.1v1") == true
+    GuestUserExclusionsFullyExempt(CAPolicy, "MS.AAD.1.1v1") == true
+}
+
+# Pass if at least 1 policy meets all conditions
+tests contains {
+    "PolicyId": "MS.AAD.1.1v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-MgBetaIdentityConditionalAccessPolicy"],
+    "ActualValue": LegacyAuthentication,
+    "ReportDetails": concat(". ", [ReportFullDetailsArray(LegacyAuthentication, DescriptionString), CAPLINK]),
+    "RequirementMet": Status
+} if {
+    DescriptionString := "conditional access policy(s) found that meet(s) all requirements"
+    Status := Count(LegacyAuthentication) > 0
+}
+#--
+
+############
+# MS.AAD.2 #
+############
+
+#
+# MS.AAD.2.1v1
+#--
+
+# If policy matches basic conditions, special conditions,
+# & all exclusions are intentional, save the policy name
+BlockHighRisk contains CAPolicy.DisplayName if {
+    some CAPolicy in input.conditional_access_policies
+
+    ### Common checks for conditional access policies
+    ContainsValue(CAPolicy.Conditions.Users.IncludeUsers, "All") == true
+    ContainsValue(CAPolicy.Conditions.Applications.IncludeApplications, "All") == true
+    Count(CAPolicy.Conditions.Users.ExcludeRoles) == 0
+    CAPolicy.State == "enabled"
+    ###
+
+    ### Conditional access checks specific to this policy
+    "high" in CAPolicy.Conditions.UserRiskLevels
+    "block" in CAPolicy.GrantControls.BuiltInControls
+    ###
+
+    # Only match policies with user and group exclusions per the confile file
+    UserExclusionsFullyExempt(CAPolicy, "MS.AAD.2.1v1") == true
+    GroupExclusionsFullyExempt(CAPolicy, "MS.AAD.2.1v1") == true
+    AppExclusionsFullyExempt(CAPolicy, "MS.AAD.2.1v1") == true
+    GuestUserExclusionsFullyExempt(CAPolicy, "MS.AAD.2.1v1") == true
+}
+
+# Pass if at least 1 policy meets all conditions & has correct
+# licence.
+tests contains {
+    "PolicyId": "MS.AAD.2.1v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-MgBetaIdentityConditionalAccessPolicy"],
+    "ActualValue": BlockHighRisk,
+    "ReportDetails": ReportDetailsArrayLicenseWarningCap(BlockHighRisk, DescriptionString),
+    "RequirementMet": Status
+} if {
+    DescriptionString := "conditional access policy(s) found that meet(s) all requirements"
+    Conditions := [
+        Count(Aad2P2Licenses) > 0,
+        Count(BlockHighRisk) > 0
+    ]
+    Status := Count(FilterArray(Conditions, false)) == 0
+}
+#--
+
+#
+# MS.AAD.2.2v1
+#--
+
+# At this time we are unable to test for X because of Y
+tests contains {
+    "PolicyId": "MS.AAD.2.2v1",
+    "Criticality": "Should/Not-Implemented",
+    "Commandlet": [],
+    "ActualValue": [],
+    "ReportDetails": NotCheckedDetails("MS.AAD.2.2v1"),
+    "RequirementMet": false
+}
+#--
+
+#
+# MS.AAD.2.3v1
+#--
+
+# If policy matches basic conditions, special conditions,
+# & all exclusions are intentional, save the policy name
+SignInBlocked contains CAPolicy.DisplayName if {
+    some CAPolicy in input.conditional_access_policies
+
+    ### Common checks for conditional access policies
+    ContainsValue(CAPolicy.Conditions.Users.IncludeUsers, "All") == true
+    ContainsValue(CAPolicy.Conditions.Applications.IncludeApplications, "All") == true
+    Count(CAPolicy.Conditions.Users.ExcludeRoles) == 0
+    CAPolicy.State == "enabled"
+    ###
+
+    ### Conditional access checks specific to this policy
+    "high" in CAPolicy.Conditions.SignInRiskLevels
+    "block" in CAPolicy.GrantControls.BuiltInControls
+    ###
+
+    # Only match policies with user and group exclusions per the confile file
+    UserExclusionsFullyExempt(CAPolicy, "MS.AAD.2.3v1") == true
+    GroupExclusionsFullyExempt(CAPolicy, "MS.AAD.2.3v1") == true
+    AppExclusionsFullyExempt(CAPolicy, "MS.AAD.2.3v1") == true
+    GuestUserExclusionsFullyExempt(CAPolicy, "MS.AAD.2.3v1") == true
+}
+
+# Pass if at least 1 policy meets all conditions & has correct
+# licence.
+tests contains {
+    "PolicyId": "MS.AAD.2.3v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-MgBetaIdentityConditionalAccessPolicy"],
+    "ActualValue": SignInBlocked,
+    "ReportDetails": ReportDetailsArrayLicenseWarningCap(SignInBlocked, DescriptionString),
+    "RequirementMet": Status
+} if {
+    DescriptionString := "conditional access policy(s) found that meet(s) all requirements"
+    Conditions := [
+        Count(Aad2P2Licenses) > 0,
+        Count(SignInBlocked) > 0
+    ]
+    Status := Count(FilterArray(Conditions, false)) == 0
+}
+#--
+
+############
+# MS.AAD.3 #
+############
+
+#
+# MS.AAD.3.1v1
+#--
+
+# If policy matches basic conditions, special conditions,
+# all exclusions are intentional, & none but acceptable MFA
+# are allowed, save the policy name
+PhishingResistantMFAPolicies contains CAPolicy.DisplayName if {
+    some CAPolicy in input.conditional_access_policies
+
+    ### Common checks for conditional access policies
+    ContainsValue(CAPolicy.Conditions.Users.IncludeUsers, "All") == true
+    ContainsValue(CAPolicy.Conditions.Applications.IncludeApplications, "All") == true
+    Count(CAPolicy.Conditions.Users.ExcludeRoles) == 0
+    CAPolicy.State == "enabled"
+    ###
+
+    ### Conditional access checks specific to this policy
+    IsPhishingResistantMFA(CAPolicy) == true
+    ###
+
+    # Only match policies with user and group exclusions per the confile file
+    UserExclusionsFullyExempt(CAPolicy, "MS.AAD.3.1v1") == true
+    GroupExclusionsFullyExempt(CAPolicy, "MS.AAD.3.1v1") == true
+    AppExclusionsFullyExempt(CAPolicy, "MS.AAD.3.1v1") == true
+    GuestUserExclusionsFullyExempt(CAPolicy, "MS.AAD.3.1v1") == true
+}
+
+# Pass if at least 1 policy meets all conditions
+tests contains {
+    "PolicyId": "MS.AAD.3.1v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-MgBetaIdentityConditionalAccessPolicy"],
+    "ActualValue": PhishingResistantMFAPolicies,
+    "ReportDetails": concat(". ", [ReportFullDetailsArray(PhishingResistantMFAPolicies, DescriptionString), CAPLINK]),
+    "RequirementMet": Status
+} if {
+    DescriptionString := "conditional access policy(s) found that meet(s) all requirements"
+    Status := Count(PhishingResistantMFAPolicies) > 0
+}
+#--
+
+#
+# MS.AAD.3.2v2
+#--
+
+# If policy matches basic conditions, special conditions,
+# & all exclusions are intentional, save the policy name
+NonSpecificMFAPolicies contains CAPolicy.DisplayName if {
+    some CAPolicy in input.conditional_access_policies
+
+    ### Common checks for conditional access policies
+    ContainsValue(CAPolicy.Conditions.Users.IncludeUsers, "All") == true
+    ContainsValue(CAPolicy.Conditions.Applications.IncludeApplications, "All") == true
+    Count(CAPolicy.Conditions.Users.ExcludeRoles) == 0
+    CAPolicy.State == "enabled"
+    ###
+
+    ### Conditional access checks specific to this policy
+    IsGeneralMFA(CAPolicy) == true
+    ###
+
+    # Only match policies with user and group exclusions per the confile file
+    UserExclusionsFullyExempt(CAPolicy, "MS.AAD.3.2v2") == true
+    GroupExclusionsFullyExempt(CAPolicy, "MS.AAD.3.2v2") == true
+    AppExclusionsFullyExempt(CAPolicy, "MS.AAD.3.2v2") == true
+    GuestUserExclusionsFullyExempt(CAPolicy, "MS.AAD.3.2v2") == true
+}
+
+# Pass if at least 1 policy meets all conditions
+tests contains {
+    "PolicyId": "MS.AAD.3.2v2",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-MgBetaIdentityConditionalAccessPolicy"],
+    "ActualValue": NonSpecificMFAPolicies,
+    "ReportDetails": concat(". ", [ReportFullDetailsArray(NonSpecificMFAPolicies, DescriptionString), CAPLINK]),
+    "RequirementMet": Status
+} if {
+    DescriptionString := "conditional access policy(s) found that meet(s) all requirements"
+    Status := Count(NonSpecificMFAPolicies) > 0
+}
+#--
+
+#
+# MS.AAD.3.3v2
+#--
+
+# Returns the MS Authenticator configuration settings
+MSAuth := auth_setting if {
+    some auth_method in input.authentication_method
+    some auth_setting in auth_method.authentication_method_feature_settings
+
+    auth_setting.Id == "MicrosoftAuthenticator"
+}
+
+# Returns true if MS Authenticator is enabled, false if it is not
+default MSAuthEnabled := false
+MSAuthEnabled := true if {
+    MSAuth.State == "enabled"
+}
+
+# Returns true if MS Authenticator is configured per the baseline, false if it is not
+default MSAuthProperlyConfigured := false
+MSAuthProperlyConfigured := true if {
+    MSAuthEnabled == true
+    MSAuth.IsSoftwareOathEnabled == false
+    # Make sure that MS Auth shows the app name and geographic location
+    Settings := MSAuth.FeatureSettings
+    Settings.DisplayAppInformationRequiredState.State == "enabled"
+    Settings.DisplayLocationInformationRequiredState.State == "enabled"
+
+    # Make sure that the configuration applies to all users
+    # if the following settings are not set to "all_users",
+    # they will be set to the group id of the selected groups
+    Settings.DisplayAppInformationRequiredState.IncludeTarget.Id == "all_users"
+    Settings.DisplayLocationInformationRequiredState.IncludeTarget.Id == "all_users"
+}
+
+default AAD_3_3_Not_Applicable := false
+# Returns true no matter what if phishing-resistant MFA is being enforced
+AAD_3_3_Not_Applicable := true if {
+    Count(PhishingResistantMFAPolicies) > 0
+}
+
+# Returns true if phishing-resistant MFA is not being enforced but MS Auth is disabled
+AAD_3_3_Not_Applicable := true if {
+    Count(PhishingResistantMFAPolicies) == 0
+    MSAuthEnabled == false
+}
+
+# First test is for N/A case
+tests contains {
+    "PolicyId": PolicyId,
+    "Criticality": "Shall",
+    "Commandlet": ["Get-MgBetaPolicyAuthenticationMethodPolicy"],
+    "ActualValue": [],
+    "ReportDetails": CheckedSkippedDetails(PolicyId, Reason),
+    "RequirementMet": true
+} if {
+    PolicyId := "MS.AAD.3.3v2"
+    # regal ignore:line-length
+    Reason := "This policy is only applicable if MS Authenticator is enabled. See %v for more info"
+    AAD_3_3_Not_Applicable == true
+}
+
+# If policy is not N/A then we check that the configuration matches the baseline
+tests contains {
+    "PolicyId": "MS.AAD.3.3v2",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-MgBetaPolicyAuthenticationMethodPolicy"],
+    "ActualValue": MSAuth,
+    "ReportDetails": ReportDetailsBoolean(Status),
+    "RequirementMet": Status
+} if {
+    AAD_3_3_Not_Applicable == false
+    Status := MSAuthProperlyConfigured == true
+}
+
+#
+# MS.AAD.3.4v1
+#--
+
+# Returns the auth policy migration state object
+AuthenticationPolicyMigrationState := PolicyMigrationState if {
+    some Setting in input.authentication_method
+    PolicyMigrationState := Setting.authentication_method_policy.PolicyMigrationState
+}
+
+# Returns true if the tenant has completed their authpolicy migration
+default AuthenticationPolicyMigrationIsComplete := false
+AuthenticationPolicyMigrationIsComplete if AuthenticationPolicyMigrationState == "migrationComplete"
+AuthenticationPolicyMigrationIsComplete if is_null(AuthenticationPolicyMigrationState)
+
+tests contains {
+    "PolicyId": "MS.AAD.3.4v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-MgBetaPolicyAuthenticationMethodPolicy"],
+    "ActualValue": [AuthenticationPolicyMigrationState],
+    "ReportDetails": ReportDetailsBoolean(AuthenticationPolicyMigrationIsComplete),
+    "RequirementMet": AuthenticationPolicyMigrationIsComplete
+}
+#--
+
+#
+# MS.AAD.3.5v2
+#--
+
+# Returns all the config states for the methods Sms, Voice, Email
+LowSecurityAuthMethods contains {
+    "Id": Configuration.Id,
+    "State": Configuration.State
+} if {
+    some Setting in input.authentication_method
+    some Configuration in Setting.authentication_method_feature_settings
+    Configuration.Id in ["Sms", "Voice", "Email"]
+}
+
+# Returns true only when all the low security auth methods are disabled per the policy
+default LowSecurityAuthMethodsDisabled := false
+LowSecurityAuthMethodsDisabled := true if {
+    every Config in LowSecurityAuthMethods { Config.State == "disabled" }
+}
+
+# We check that the configuration matches the baseline
+tests contains {
+    "PolicyId": "MS.AAD.3.5v2",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-MgBetaPolicyAuthenticationMethodPolicy"],
+    "ActualValue": [LowSecurityAuthMethods],
+    "ReportDetails": ReportDetailsString(LowSecurityAuthMethodsDisabled, "Sms, Voice, and Email authentication must be disabled."),
+    "RequirementMet": LowSecurityAuthMethodsDisabled
+}
+#--
+
+#
+# MS.AAD.3.6v1
+#--
+
+# Hoisted outside of the iteration in PhishingResistantMFAPrivilegedRoles to
+# avoid recomputing on every CAPolicy iteration (non-loop-expression).
+PrivRolesSet := ConvertToSetWithKey(input.privileged_roles, "RoleTemplateId")
+
+# First check if policy is enabled, then confirm that all
+# privliged roles are included in policy & not excluded.
+# If policy matches basic conditions, special conditions,
+# & all exclusions are intentional, save the policy name
+PhishingResistantMFAPrivilegedRoles contains CAPolicy.DisplayName if {
+    some CAPolicy in input.conditional_access_policies
+
+    ### Common checks for conditional access policies
+    ### We don't check IncludeUsers All because this is a role based policy
+    ContainsValue(CAPolicy.Conditions.Applications.IncludeApplications, "All") == true
+    Count(CAPolicy.Conditions.Users.ExcludeRoles) == 0
+    CAPolicy.State == "enabled"
+    ###
+
+    ### Conditional access checks specific to this policy
+    # Make sure all the necessary roles are included
+    Count(PrivRolesSet - ConvertToSet(CAPolicy.Conditions.Users.IncludeRoles)) == 0
+    IsPhishingResistantMFA(CAPolicy) == true
+    ###
+
+    # Only match policies with user and group exclusions per the confile file
+    UserExclusionsFullyExempt(CAPolicy, "MS.AAD.3.6v1") == true
+    GroupExclusionsFullyExempt(CAPolicy, "MS.AAD.3.6v1") == true
+    AppExclusionsFullyExempt(CAPolicy, "MS.AAD.3.6v1") == true
+    GuestUserExclusionsFullyExempt(CAPolicy, "MS.AAD.3.6v1") == true
+}
+
+# Pass if at least 1 policy meets all conditions
+tests contains {
+    "PolicyId": "MS.AAD.3.6v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-MgBetaIdentityConditionalAccessPolicy"],
+    "ActualValue": PhishingResistantMFAPrivilegedRoles,
+    "ReportDetails": concat(". ", [ReportFullDetailsArray(PhishingResistantMFAPrivilegedRoles, DescriptionString), CAPLINK]),
+    "RequirementMet": Status
+} if {
+    DescriptionString := "conditional access policy(s) found that meet(s) all requirements"
+    Status := Count(PhishingResistantMFAPrivilegedRoles) > 0
+}
+#--
+
+#
+# MS.AAD.3.7v1
+#--
+
+# If policy matches basic conditions, & needed strings
+# are in bult in controls, save the policy name
+ManagedDeviceAuth contains CAPolicy.DisplayName if {
+    some CAPolicy in input.conditional_access_policies
+
+    ### Common checks for conditional access policies
+    ContainsValue(CAPolicy.Conditions.Users.IncludeUsers, "All") == true
+    ContainsValue(CAPolicy.Conditions.Applications.IncludeApplications, "All") == true
+    Count(CAPolicy.Conditions.Users.ExcludeRoles) == 0
+    CAPolicy.State == "enabled"
+    ###
+
+    ### Conditional access checks specific to this policy
+    "compliantDevice" in CAPolicy.GrantControls.BuiltInControls
+    "domainJoinedDevice" in CAPolicy.GrantControls.BuiltInControls
+    Count(CAPolicy.GrantControls.BuiltInControls) == 2
+    CAPolicy.GrantControls.Operator == "OR"
+    ###
+
+    # Only match policies with user and group exclusions per the confile file
+    UserExclusionsFullyExempt(CAPolicy, "MS.AAD.3.7v1") == true
+    GroupExclusionsFullyExempt(CAPolicy, "MS.AAD.3.7v1") == true
+    AppExclusionsFullyExempt(CAPolicy, "MS.AAD.3.7v1") == true
+    GuestUserExclusionsFullyExempt(CAPolicy, "MS.AAD.3.7v1") == true
+}
+
+# Pass if at least 1 policy meets all conditions
+tests contains {
+    "PolicyId": "MS.AAD.3.7v1",
+    "Criticality": "Should",
+    "Commandlet": ["Get-MgBetaIdentityConditionalAccessPolicy"],
+    "ActualValue": ManagedDeviceAuth,
+    "ReportDetails": concat(". ", [ReportFullDetailsArray(ManagedDeviceAuth, DescriptionString), CAPLINK]),
+    "RequirementMet": Status
+} if {
+    DescriptionString := "conditional access policy(s) found that meet(s) all requirements"
+    Status := Count(ManagedDeviceAuth) > 0
+}
+#--
+
+#
+# MS.AAD.3.8v1
+#--
+
+# Checks to ensure a managed device is required to perform MFA registration
+RequireManagedDeviceMFA contains CAPolicy.DisplayName if {
+    some CAPolicy in input.conditional_access_policies
+
+    ### Common checks for conditional access policies
+    ### We don't check IncludeApplications and ExcludeApplications because they are not relevant when you have an IncludeUserActions node
+    ContainsValue(CAPolicy.Conditions.Users.IncludeUsers, "All") == true
+    Count(CAPolicy.Conditions.Users.ExcludeRoles) == 0
+    CAPolicy.State == "enabled"
+    ###
+
+    ### Conditional access checks specific to this policy
+    ContainsValue(CAPolicy.Conditions.Applications.IncludeUserActions, "urn:user:registersecurityinfo") == true
+
+    Conditions := [
+        "compliantDevice" in CAPolicy.GrantControls.BuiltInControls,
+        "domainJoinedDevice" in CAPolicy.GrantControls.BuiltInControls,
+    ]
+    Count(FilterArray(Conditions, true)) > 0
+    ###
+
+    # Only match policies with user and group exclusions per the confile file
+    UserExclusionsFullyExempt(CAPolicy, "MS.AAD.3.8v1") == true
+    GroupExclusionsFullyExempt(CAPolicy, "MS.AAD.3.8v1") == true
+    GuestUserExclusionsFullyExempt(CAPolicy, "MS.AAD.3.8v1") == true
+}
+
+# Pass if at least 1 policy meets all conditions
+tests contains {
+    "PolicyId": "MS.AAD.3.8v1",
+    "Criticality": "Should",
+    "Commandlet": ["Get-MgBetaIdentityConditionalAccessPolicy"],
+    "ActualValue": RequireManagedDeviceMFA,
+    "ReportDetails": concat(". ", [ReportFullDetailsArray(RequireManagedDeviceMFA, DescriptionString), CAPLINK]),
+    "RequirementMet": Status
+} if {
+    DescriptionString := "conditional access policy(s) found that meet(s) all requirements"
+    Status := Count(RequireManagedDeviceMFA) > 0
+}
+#--
+
+#--
+# MS.AAD.3.9v1
+#--
+
+# Checks to ensure a managed device is required to perform MFA registration
+RequireDeviceCodeBlock contains CAPolicy.DisplayName if {
+    some CAPolicy in input.conditional_access_policies
+
+    ### Common checks for conditional access policies
+    ContainsValue(CAPolicy.Conditions.Users.IncludeUsers, "All") == true
+    ContainsValue(CAPolicy.Conditions.Applications.IncludeApplications, "All") == true
+    Count(CAPolicy.Conditions.Users.ExcludeRoles) == 0
+    CAPolicy.State == "enabled"
+    ###
+
+    ### Conditional access checks specific to this policy
+    CAPolicy.Conditions.AuthenticationFlows.TransferMethods == "deviceCodeFlow"
+    "block" in CAPolicy.GrantControls.BuiltInControls
+    ###
+
+    # Only match policies with user and group exclusions per the confile file
+    UserExclusionsFullyExempt(CAPolicy, "MS.AAD.3.9v1") == true
+    GroupExclusionsFullyExempt(CAPolicy, "MS.AAD.3.9v1") == true
+    AppExclusionsFullyExempt(CAPolicy, "MS.AAD.3.9v1") == true
+    GuestUserExclusionsFullyExempt(CAPolicy, "MS.AAD.3.9v1") == true
+}
+
+# Pass if at least 1 policy meets all conditions
+tests contains {
+    "PolicyId": "MS.AAD.3.9v1",
+    "Criticality": "Should",
+    "Commandlet": ["Get-MgBetaIdentityConditionalAccessPolicy"],
+    "ActualValue": RequireDeviceCodeBlock,
+    "ReportDetails": concat(". ", [ReportFullDetailsArray(RequireDeviceCodeBlock, DescriptionString), CAPLINK]),
+    "RequirementMet": Status
+} if {
+    DescriptionString := "conditional access policy(s) found that meet(s) all requirements"
+    Status := Count(RequireDeviceCodeBlock) > 0
+}
+#--
+
+############
+# MS.AAD.4 #
+############
+
+#
+# MS.AAD.4.1v1
+#--
+
+# At this time we are unable to test for log collection until we integrate Azure Powershell capabilities
+tests contains {
+    "PolicyId": "MS.AAD.4.1v1",
+    "Criticality": "Shall/Not-Implemented",
+    "Commandlet": [],
+    "ActualValue": [],
+    "ReportDetails": NotCheckedDetails("MS.AAD.4.1v1"),
+    "RequirementMet": false
+}
+#--
+
+############
+# MS.AAD.5 #
+############
+
+#
+# MS.AAD.5.1v1
+#--
+
+# If allowed to create apps, save the policy id
+AuthPoliciesAppBad contains Policy.Id if {
+    some Policy in input.authorization_policies
+    Policy.DefaultUserRolePermissions.AllowedToCreateApps == true
+}
+
+# Get all policy ids
+AllAuthPoliciesAllowedCreate contains {
+    "DefaultUser_AllowedToCreateApps": Policy.DefaultUserRolePermissions.AllowedToCreateApps,
+    "PolicyId": Policy.Id
+} if {
+    some Policy in input.authorization_policies
+}
+
+# If there is a policy that allows user to create apps, fail
+tests contains {
+    "PolicyId": "MS.AAD.5.1v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-MgBetaPolicyAuthorizationPolicy"],
+    "ActualValue": {"all_allowed_create_values": AllAuthPoliciesAllowedCreate},
+    "ReportDetails": ReportFullDetailsArray(
+        AuthPoliciesAppBad,
+        "authorization policies found that allow non-admin users to register third-party applications"
+    ),
+    "RequirementMet": Count(AuthPoliciesAppBad) == 0
+}
+#--
+
+#
+# MS.AAD.5.2v1
+#--
+
+# Return the Id if non-compliant user consent policies if there are risky delegated permission classifications
+# Option 2: Allow user consent for apps from verified publishers, for selected permissions
+RiskyDelegatedPermissionClassifications contains Policy.Id if {
+    some Policy in input.authorization_policies
+    "ManagePermissionGrantsForSelf.microsoft-user-default-low" in Policy.PermissionGrantPolicyIdsAssignedToDefaultUserRole
+    # Checks if any delegated permissions have a classification of low and are found in the RiskyAppPermissions.json file
+    some x in input.risky_delegated_permission_classifications
+    x != null
+}
+
+# Return the Id if non-compliant user consent policies
+# Option 3: Let Microsoft manage your consent settings (Recommended)
+BadDefaultGrantPolicies contains Policy.Id if {
+    some Policy in input.authorization_policies
+    "ManagePermissionGrantsForSelf.microsoft-user-default-recommended" in Policy.PermissionGrantPolicyIdsAssignedToDefaultUserRole
+}
+
+# Return all policy Ids
+AllDefaultGrantPolicies contains {
+    "DefaultUser_DefaultGrantPolicy": Policy.PermissionGrantPolicyIdsAssignedToDefaultUserRole,
+    "PolicyId": Policy.Id
+} if {
+    some Policy in input.authorization_policies
+}
+
+default BadPolicies := []
+BadPolicies := BadDefaultGrantPolicies if {
+    count([x | some x in BadDefaultGrantPolicies; x != null]) > 0
+} else := RiskyDelegatedPermissionClassifications if {
+    count([x | some x in RiskyDelegatedPermissionClassifications; x != null]) > 0
+}
+
+default DescriptionStr := "authorization policies found that allow non-admin users to consent to third-party applications"
+DescriptionStr := "authorization policies found that allow Microsoft to manage consent settings" if {
+    count([x | some x in BadDefaultGrantPolicies; x != null]) > 0
+} else := concat(" ", [
+    "authorization policies found that allow non-admin users to consent to", 
+    "third-party applications with risky delegated permission classifications"
+ ]) if {
+    count([x | some x in RiskyDelegatedPermissionClassifications; x != null]) > 0
+}
+
+# If there is a policy that allows user to consent to risky third party apps, fail
+tests contains {
+    "PolicyId": "MS.AAD.5.2v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-MgBetaPolicyAuthorizationPolicy"],
+    "ActualValue": {"all_grant_policy_values": AllDefaultGrantPolicies},
+    "ReportDetails": ReportFullDetailsArray(BadPolicies, DescriptionStr),
+    "RequirementMet": Status
+} if {
+    Status := Count(BadPolicies) == 0
+}
+
+#
+# MS.AAD.5.3v1
+#--
+
+# For specific setting, save the value & group.
+AllAdminConsentSettings contains {
+    "SettingsGroup": SettingGroup.DisplayName,
+    "Name": Setting.Name,
+    "Value": Setting.Value
+} if {
+    some SettingGroup in input.directory_settings
+    some Setting in SettingGroup.Values
+    Setting.Name == "EnableAdminConsentRequests"
+}
+
+# Save all settings that have a value of false
+GoodAdminConsentSettings contains {
+    "SettingsGroup": Setting.SettingsGroup,
+    "Name": Setting.Name,
+    "Value": Setting.Value
+} if {
+    some Setting in AllAdminConsentSettings
+    lower(Setting.Value) == "true"
+}
+
+# Save all settings that have a value of true
+BadAdminConsentSettings contains {
+    "SettingsGroup": Setting.SettingsGroup,
+    "Name": Setting.Name,
+    "Value": Setting.Value
+} if {
+    some Setting in AllAdminConsentSettings
+    lower(Setting.Value) == "false"
+}
+
+# If there is a policy that is not enabled, fail
+tests contains {
+    "PolicyId": "MS.AAD.5.3v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-MgBetaDirectorySetting"],
+    "ActualValue": {"all_admin_consent_policies": AllAdminConsentSettings},
+    "ReportDetails": ReportDetailsBoolean(Status),
+    "RequirementMet": Status
+} if {
+    Conditions := [
+        Count(BadAdminConsentSettings) == 0,
+        Count(GoodAdminConsentSettings) > 0
+    ]
+    Status := Count(FilterArray(Conditions, false)) == 0
+}
+#--
+
+#
+# MS.AAD.5.5v1 - Block Password Addition
+#--
+#
+# Background:
+#   The default app management policy contains two parallel restriction sets:
+#     - ApplicationRestrictions.PasswordCredentials       (App registrations)
+#     - ServicePrincipalRestrictions.PasswordCredentials  (Service principals / Enterprise apps)
+#   Each set has a "passwordAddition" entry. To pass, BOTH must be:
+#     1. State == "enabled"
+#     2. RestrictForAppsCreatedAfterDateTime == "/Date(-62135596800000)/"
+#        (.NET DateTime.MinValue, meaning "applies to ALL apps - no date restriction")
+#
+#   Custom app management policies in input.app_management_policies can disable
+#   the restriction for specific apps via Restrictions.PasswordCredentials. Those
+#   apps are exempt from the global block and must be reported.
+#
+#   ALL_APPS_DATES holds both representations of .NET DateTime.MinValue
+#   that have been observed in provider output:
+#     - "/Date(-62135596800000)/" (legacy .NET serialization)
+#     - "0001-01-01T00:00:00Z"   (ISO 8601)
+#--
+
+ALL_APPS_DATES := {"/Date(-62135596800000)/", "0001-01-01T00:00:00Z"}
+
+# True when the given date string represents "all apps" (no date restriction).
+IsAllAppsDate(DateStr) if DateStr in ALL_APPS_DATES
+
+# Convert a RestrictForAppsCreatedAfterDateTime string to YYYY-MM-DD.
+# Handles both "/Date(<ms>)/" and ISO 8601 ("YYYY-MM-DDThh:mm:ssZ") formats.
+FormatRestrictionDate(DateStr) := substring(DateStr, 0, 10) if {
+    not startswith(DateStr, "/Date(")
+}
+
+FormatRestrictionDate(DateStr) := substring(time.format(to_number(MsStr) * 1000000), 0, 10) if {
+    startswith(DateStr, "/Date(")
+    MsStr := trim_prefix(trim_suffix(DateStr, ")/"), "/Date(")
+}
+
+# Collect every passwordAddition restriction from both Application and Service Principal scopes.
+# Treating them uniformly removes Apps/SPs duplication in the issue rules below.
+PasswordAdditionRestrictions contains Restriction if {
+    Policy := input.default_app_management_policy[0]
+    some Restriction in Policy.ApplicationRestrictions.PasswordCredentials
+    Restriction.RestrictionType == "passwordAddition"
+}
+
+PasswordAdditionRestrictions contains Restriction if {
+    Policy := input.default_app_management_policy[0]
+    some Restriction in Policy.ServicePrincipalRestrictions.PasswordCredentials
+    Restriction.RestrictionType == "passwordAddition"
+}
+
+# True only when EVERY passwordAddition restriction (Apps + SPs) is fully blocking.
+# Used by MS.AAD.5.6v1 to mark itself N/A (lifetime is moot if addition is blocked).
+default PasswordAdditionFullyBlocked := false
+PasswordAdditionFullyBlocked := true if {
+    Count(PasswordAdditionIssues) == 0
+    Count(PasswordAdditionRestrictions) > 0
+    every Restriction in PasswordAdditionRestrictions {
+        Restriction.State == "enabled"
+        IsAllAppsDate(Restriction.RestrictForAppsCreatedAfterDateTime)
+    }
+}
+
+# Issue: a passwordAddition restriction is not enabled at all.
+PasswordAdditionIssues contains "Password addition not blocked" if {
+    some Restriction in PasswordAdditionRestrictions
+    Restriction.State != "enabled"
+}
+
+# Issue: a passwordAddition restriction is enabled, but only applies to apps
+# created after a specific date - existing apps are exempt.
+PasswordAdditionIssues contains Issue if {
+    some Restriction in PasswordAdditionRestrictions
+    Restriction.State == "enabled"
+    not IsAllAppsDate(Restriction.RestrictForAppsCreatedAfterDateTime)
+    DateOnly := FormatRestrictionDate(Restriction.RestrictForAppsCreatedAfterDateTime)
+    Issue := sprintf("Only applies to apps created after %v", [DateOnly])
+}
+
+# Issue: a custom app management policy disables passwordAddition for specific apps,
+# exempting them from the global restriction.
+PasswordAdditionIssues contains Issue if {
+    some Policy in input.app_management_policies
+    Policy.IsEnabled == true
+    some Restriction in Policy.Restrictions.PasswordCredentials
+    Restriction.RestrictionType == "passwordAddition"
+    Restriction.State != "enabled"
+    count(Restriction.AppliesTo) > 0
+    AppNames := concat(", ", [App.DisplayName | some App in Restriction.AppliesTo])
+    Issue := sprintf("Exempted apps: %v", [AppNames])
+}
+
+# Pass when no issues were collected.
+tests contains {
+    "PolicyId": "MS.AAD.5.5v1",
+    "Criticality": "Should",
+    "Commandlet": ["Get-MgBetaPolicyDefaultAppManagementPolicy"],
+    "ActualValue": PasswordAdditionIssues,
+    "ReportDetails": ReportFullDetailsArray(PasswordAdditionIssues, DescriptionString),
+    "RequirementMet": Status
+} if {
+    DescriptionString := "Password addition restriction(s) not meeting requirements"
+    Status := Count(PasswordAdditionIssues) == 0
+}
+#--
+
+#
+# MS.AAD.5.6v1 - Restrict Password Lifetime
+#--
+#
+# Background:
+#   Same data shape as 5.5, but the relevant restriction is "passwordLifetime".
+#   Each restriction also has a MaxLifetime field in ISO 8601 duration format
+#   (e.g. "P181D" = 181 days). To pass, every passwordLifetime restriction must:
+#     1. State == "enabled"
+#     2. RestrictForAppsCreatedAfterDateTime == ALL_APPS_DATE
+#     3. MaxLifetime <= 181 days (181 enforces "180 or less" due to MS's
+#        "less than" evaluation in the portal)
+#
+#   This policy is N/A when 5.5 passes - if password addition is fully blocked,
+#   lifetime is moot.
+#--
+
+PASSWORD_MAX_DAYS := 181
+
+# Collect every passwordLifetime restriction from both scopes.
+PasswordLifetimeRestrictions contains Restriction if {
+    Policy := input.default_app_management_policy[0]
+    some Restriction in Policy.ApplicationRestrictions.PasswordCredentials
+    Restriction.RestrictionType == "passwordLifetime"
+}
+
+PasswordLifetimeRestrictions contains Restriction if {
+    Policy := input.default_app_management_policy[0]
+    some Restriction in Policy.ServicePrincipalRestrictions.PasswordCredentials
+    Restriction.RestrictionType == "passwordLifetime"
+}
+
+# Issue: a passwordLifetime restriction is not enabled.
+PasswordLifetimeIssues contains "Password lifetime not restricted" if {
+    some Restriction in PasswordLifetimeRestrictions
+    Restriction.State != "enabled"
+}
+
+# Issue: enabled but only applies to apps created after a specific date.
+PasswordLifetimeIssues contains Issue if {
+    some Restriction in PasswordLifetimeRestrictions
+    Restriction.State == "enabled"
+    not IsAllAppsDate(Restriction.RestrictForAppsCreatedAfterDateTime)
+    DateOnly := FormatRestrictionDate(Restriction.RestrictForAppsCreatedAfterDateTime)
+    Issue := sprintf("Password lifetime: only applies to apps created after %v", [DateOnly])
+}
+
+# Issue: passwordLifetime restriction is missing entirely from one or both scopes.
+# When the portal toggle is OFF, the entry is omitted rather than present-but-disabled.
+PasswordLifetimeIssues contains "Password lifetime not restricted for apps" if {
+    Policy := input.default_app_management_policy[0]
+    not PasswordLifetimeInScope(Policy.ApplicationRestrictions.PasswordCredentials)
+}
+
+PasswordLifetimeIssues contains "Password lifetime not restricted for apps" if {
+    Policy := input.default_app_management_policy[0]
+    not PasswordLifetimeInScope(Policy.ServicePrincipalRestrictions.PasswordCredentials)
+}
+
+PasswordLifetimeInScope(Restrictions) if {
+    some R in Restrictions
+    R.RestrictionType == "passwordLifetime"
+}
+
+# Issue: enabled but MaxLifetime exceeds the threshold.
+# MaxLifetime is "PnD" (ISO 8601 duration); strip 'P' prefix and 'D' suffix to get days.
+PasswordLifetimeIssues contains Issue if {
+    some Restriction in PasswordLifetimeRestrictions
+    Restriction.State == "enabled"
+    Days := to_number(trim_prefix(trim_suffix(Restriction.MaxLifetime, "D"), "P"))
+    Days > PASSWORD_MAX_DAYS
+    Issue := sprintf("Password lifetime too long: %v days, must be %v or less", [Days, PASSWORD_MAX_DAYS])
+}
+
+# Issue: a custom app management policy disables passwordLifetime for specific apps.
+PasswordLifetimeIssues contains Issue if {
+    some Policy in input.app_management_policies
+    Policy.IsEnabled == true
+    some Restriction in Policy.Restrictions.PasswordCredentials
+    Restriction.RestrictionType == "passwordLifetime"
+    Restriction.State != "enabled"
+    count(Restriction.AppliesTo) > 0
+    AppNames := concat(", ", [App.DisplayName | some App in Restriction.AppliesTo])
+    Issue := sprintf("Password lifetime: exempted apps: %v", [AppNames])
+}
+
+# N/A path: password addition is fully blocked (5.5 passes), so lifetime doesn't matter.
+tests contains {
+    "PolicyId": "MS.AAD.5.6v1",
+    "Criticality": "Should",
+    "Commandlet": ["Get-MgBetaPolicyDefaultAppManagementPolicy"],
+    "ActualValue": PasswordLifetimeRestrictions,
+    "ReportDetails": "Requirement met",
+    "RequirementMet": true
+} if {
+    PasswordAdditionFullyBlocked == true
+}
+
+# Standard path: pass when no issues collected.
+tests contains {
+    "PolicyId": "MS.AAD.5.6v1",
+    "Criticality": "Should",
+    "Commandlet": ["Get-MgBetaPolicyDefaultAppManagementPolicy"],
+    "ActualValue": PasswordLifetimeIssues,
+    "ReportDetails": ReportFullDetailsArray(PasswordLifetimeIssues, DescriptionString),
+    "RequirementMet": Status
+} if {
+    PasswordAdditionFullyBlocked == false
+    DescriptionString := "password lifetime restriction(s) not meeting requirements"
+    Status := Count(PasswordLifetimeIssues) == 0
+}
+#--
+
+#
+# MS.AAD.5.7v1 - Restrict Certificate Lifetime
+#--
+#
+# Background:
+#   Same shape as 5.6, but operates on KeyCredentials instead of PasswordCredentials,
+#   with RestrictionType "asymmetricKeyLifetime". Threshold is 366 days
+#   (enforces "365 or less" due to MS's "less than" evaluation).
+#--
+
+CERTIFICATE_MAX_DAYS := 366
+
+# Collect every asymmetricKeyLifetime restriction from both scopes.
+CertificateLifetimeRestrictions contains Restriction if {
+    Policy := input.default_app_management_policy[0]
+    some Restriction in Policy.ApplicationRestrictions.KeyCredentials
+    Restriction.RestrictionType == "asymmetricKeyLifetime"
+}
+
+CertificateLifetimeRestrictions contains Restriction if {
+    Policy := input.default_app_management_policy[0]
+    some Restriction in Policy.ServicePrincipalRestrictions.KeyCredentials
+    Restriction.RestrictionType == "asymmetricKeyLifetime"
+}
+
+# Issue: an asymmetricKeyLifetime restriction is not enabled.
+CertificateLifetimeIssues contains "Certificate lifetime not restricted" if {
+    some Restriction in CertificateLifetimeRestrictions
+    Restriction.State != "enabled"
+}
+
+# Issue: enabled but only applies to apps created after a specific date.
+CertificateLifetimeIssues contains Issue if {
+    some Restriction in CertificateLifetimeRestrictions
+    Restriction.State == "enabled"
+    not IsAllAppsDate(Restriction.RestrictForAppsCreatedAfterDateTime)
+    DateOnly := FormatRestrictionDate(Restriction.RestrictForAppsCreatedAfterDateTime)
+    Issue := sprintf("Certificate lifetime: only applies to apps created after %v", [DateOnly])
+}
+
+# Issue: asymmetricKeyLifetime restriction is missing entirely from one or both scopes.
+CertificateLifetimeIssues contains "Certificate lifetime not restricted for apps" if {
+    Policy := input.default_app_management_policy[0]
+    not CertificateLifetimeInScope(Policy.ApplicationRestrictions.KeyCredentials)
+}
+
+CertificateLifetimeIssues contains "Certificate lifetime not restricted for apps" if {
+    Policy := input.default_app_management_policy[0]
+    not CertificateLifetimeInScope(Policy.ServicePrincipalRestrictions.KeyCredentials)
+}
+
+CertificateLifetimeInScope(Restrictions) if {
+    some R in Restrictions
+    R.RestrictionType == "asymmetricKeyLifetime"
+}
+
+# Issue: enabled but MaxLifetime exceeds the threshold.
+CertificateLifetimeIssues contains Issue if {
+    some Restriction in CertificateLifetimeRestrictions
+    Restriction.State == "enabled"
+    Days := to_number(trim_prefix(trim_suffix(Restriction.MaxLifetime, "D"), "P"))
+    Days > CERTIFICATE_MAX_DAYS
+    Issue := sprintf("Certificate lifetime too long: %v days, must be %v or less", [Days, CERTIFICATE_MAX_DAYS])
+}
+
+# Issue: a custom app management policy disables asymmetricKeyLifetime for specific apps.
+CertificateLifetimeIssues contains Issue if {
+    some Policy in input.app_management_policies
+    Policy.IsEnabled == true
+    some Restriction in Policy.Restrictions.KeyCredentials
+    Restriction.RestrictionType == "asymmetricKeyLifetime"
+    Restriction.State != "enabled"
+    count(Restriction.AppliesTo) > 0
+    AppNames := concat(", ", [App.DisplayName | some App in Restriction.AppliesTo])
+    Issue := sprintf("Exempted apps: %v", [AppNames])
+}
+
+# Pass when no issues collected.
+tests contains {
+    "PolicyId": "MS.AAD.5.7v1",
+    "Criticality": "Should",
+    "Commandlet": ["Get-MgBetaPolicyDefaultAppManagementPolicy"],
+    "ActualValue": CertificateLifetimeIssues,
+    "ReportDetails": ReportFullDetailsArray(CertificateLifetimeIssues, DescriptionString),
+    "RequirementMet": Status
+} if {
+    DescriptionString := "certificate lifetime restriction(s) not meeting requirements"
+    Status := Count(CertificateLifetimeIssues) == 0
+}
+#--
+
+############
+# MS.AAD.6 #
+############
+
+#
+# MS.AAD.6.1v1
+#--
+
+RootDomains contains Domain if {
+    some Domain in input.domain_settings
+    Domain.IsRoot == true
+    Domain.IsVerified == true
+    Domain.AuthenticationType == "Managed"
+}
+
+# Longest matching root domain Id length for a domain (used to pick the most specific root).
+MaxMatchingRootIdLength(Domain) := max({count(R.Id) | some R in RootDomains; endswith(Domain.Id, R.Id)})
+
+RootDomainFor(Domain) := Root.Id if {
+    MaxLength := MaxMatchingRootIdLength(Domain)
+    some Root in RootDomains
+    endswith(Domain.Id, Root.Id)
+
+    # When multiple root domains match (e.g., "sub.example.com" and "example.com" both match
+    # "sub.sub.example.com"), select the most specific one (longest Id).
+    # Otherwise, an eval_conflict_error error will occur due to multiple matching root domains.
+    count(Root.Id) == MaxLength
+}
+
+# For tenants created before Oct 2021, passwordValidityPeriodInDays is set to INT_MAX (2147483647), indicating passwords never expire.
+# For tenants created after Oct 2021, passwordValidityPeriodInDays is set to null by default, which also indicates passwords never expire. 
+PasswordNeverExpires(Domain) if Domain.PasswordValidityPeriodInDays == INT_MAX
+PasswordNeverExpires(Domain) if is_null(Domain.PasswordValidityPeriodInDays)
+
+IsValid(Domain) := true if {
+    Domain.IsRoot == true
+    PasswordNeverExpires(Domain)
+} else := true if {
+    Domain.IsRoot == false
+    RootDomainFor(Domain) != null
+    some Root in RootDomains
+    Root.Id == RootDomainFor(Domain)
+    PasswordNeverExpires(Root)
+} else := false
+
+ValidDomains contains Domain.Id if {
+    some Domain in input.domain_settings
+    Domain.IsVerified == true
+    Domain.AuthenticationType == "Managed"
+    IsValid(Domain)
+}
+
+InvalidDomains contains Domain.Id if {
+    some Domain in input.domain_settings
+    Domain.IsVerified == true
+    Domain.AuthenticationType == "Managed"
+    not IsValid(Domain)
+}
+
+FederatedDomains contains Domain.Id if {
+    some Domain in input.domain_settings
+    Domain.IsVerified == true
+    Domain.AuthenticationType == "Federated"
+}
+
+tests contains {
+    "PolicyId": "MS.AAD.6.1v1",
+    "Criticality": "Shall",
+    "Commandlet": [ "Get-MgBetaDomain" ],
+    "ActualValue": {
+        "ValidDomains": ValidDomains,
+        "InvalidDomains": InvalidDomains,
+        "FederatedDomains": FederatedDomains
+    },
+    "ReportDetails": DomainReportDetails(Status, Metadata),
+    "RequirementMet": Status
+} if {
+    Conditions := [
+        Count(ValidDomains) > 0,
+        Count(InvalidDomains) == 0
+    ]
+    Status := Count(FilterArray(Conditions, true)) == 2
+    Metadata := {
+        "InvalidDomains": InvalidDomains,
+        "FederatedDomains": FederatedDomains
+    }
+}
+#--
+
+
+############
+# MS.AAD.7 #
+############
+
+#
+# MS.AAD.7.1v1
+#--
+
+# Save all users that have the Global Admin role
+GlobalAdmins contains User.DisplayName if {
+    some User in input.privileged_users
+    "Global Administrator" in User.roles
+}
+
+# Set conditions under which this policy will pass
+default IsGlobalAdminCountGood := false
+IsGlobalAdminCountGood := true if {
+    Count(GlobalAdmins) <= 8
+    Count(GlobalAdmins) >= 2
+}
+
+# Pass if there are at least 2, but no more than 8
+# users with Global Admin role.
+tests contains {
+    "PolicyId": "MS.AAD.7.1v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-MgBetaSubscribedSku", "Get-PrivilegedUser"],
+    "ActualValue": GlobalAdmins,
+    "ReportDetails": ReportFullDetailsArray(GlobalAdmins, "global admin(s) found"),
+    "RequirementMet": IsGlobalAdminCountGood
+}
+#--
+
+# MS.AAD.7.2v1
+#--
+
+# Save all users that don't have Global Admin role
+NotGlobalAdmins contains User.DisplayName if {
+    some User in input.privileged_users
+    not "Global Administrator" in User.roles
+}
+# Default case is where all privileged users are Global Admins, and avoids a divide-by-zero error 
+default GetScoreDescription := "All privileged users are Global Admin"
+GetScoreDescription := concat("", [
+    "Least Privilege Score = ", Score, " (should be 1 or less)",
+    sprintf("\nCalculated by %d global admins / %d privileged users without global admin role",
+        [Count(GlobalAdmins), Count(NotGlobalAdmins)])
+]) if {
+    Count(NotGlobalAdmins) > 0
+    RawRatio := sprintf("%v", [Count(GlobalAdmins)/Count(NotGlobalAdmins)])
+    CutOff := min([4, Count(RawRatio)])
+    Score := substring(RawRatio, 0, CutOff)
+}
+
+# calculate least privilege score as ratio of priv users with global admin role to priv users without global admin role
+LeastPrivilegeScore := "Policy MS.AAD.7.1 failed so score not computed" if {
+    IsGlobalAdminCountGood == false
+} else := GetScoreDescription
+
+# Pass if 7.1 passed and Least Privilege Score < 1, fail if 7.1 failed or Least Privilege score is >= 1
+tests contains {
+    "PolicyId": "MS.AAD.7.2v1",
+    "Criticality" : "Shall",
+    "Commandlet" : ["Get-MgBetaSubscribedSku", "Get-PrivilegedUser"],
+    "ActualValue" : GlobalAdmins,
+    "ReportDetails" : concat(": ", [ReportDetailsBoolean(Status), LeastPrivilegeScore]),
+    "RequirementMet" : Status
+} if {
+    Conditions := [
+        IsGlobalAdminCountGood,
+        Count(GlobalAdmins) <= Count(NotGlobalAdmins)
+    ]
+    Status := Count(FilterArray(Conditions, false)) == 0
+}
+#--
+
+#
+# MS.AAD.7.3v1
+#--
+
+# Save privileged users that do not have cloud
+# only accounts
+FederatedAdmins contains User.DisplayName if {
+    some User in input.privileged_users
+    not is_null(User.OnPremisesImmutableId)
+}
+
+# Pass if all privileged users have cloud only accounts
+tests contains {
+    "PolicyId": "MS.AAD.7.3v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-MgBetaSubscribedSku", "Get-PrivilegedUser"],
+    "ActualValue": AdminNames,
+    "ReportDetails": ReportFullDetailsArray(FederatedAdmins, DescriptionString),
+    "RequirementMet": Status
+} if {
+    DescriptionString := "admin(s) that are not cloud-only found"
+    Status := Count(FederatedAdmins) == 0
+    AdminNames := concat(", ", FederatedAdmins)
+}
+#--
+
+#
+# MS.AAD.7.4v1
+#--
+default PrivilegedRoleExclusions(_, _) := false
+
+# Get all privileged roles that have permenant assignment.
+# Get all users that are allowed permenant assignment from config
+# for users & groups. If there are users with permenant assignment
+# return true if all users + groups are in the config.
+PrivilegedRoleExclusions(PrivilegedRole, PolicyID) := true if {
+    PrivilegedRoleAssignedPrincipals := {x.PrincipalId | some x in PrivilegedRole.Assignments; x.EndDateTime == null}
+    Count(PrivilegedRoleAssignedPrincipals) > 0
+
+    AllowedPrivilegedRoleUsers := {y | some y in input.scuba_config.Aad[PolicyID].RoleExclusions.Users; y != null}
+    AllowedPrivilegedRoleGroups := {y | some y in input.scuba_config.Aad[PolicyID].RoleExclusions.Groups; y != null}
+    Count(PrivilegedRoleAssignedPrincipals - (AllowedPrivilegedRoleUsers | AllowedPrivilegedRoleGroups)) != 0
+}
+
+# if no users with permenant assignment & config empty, return true
+PrivilegedRoleExclusions(PrivilegedRole, PolicyID) := true if {
+    Count({x.PrincipalId | some x in PrivilegedRole.Assignments; x.EndDateTime == null}) > 0
+    Count({y | some y in input.scuba_config.Aad[PolicyID].RoleExclusions.Users; y != null}) == 0
+    Count({y | some y in input.scuba_config.Aad[PolicyID].RoleExclusions.Groups; y != null}) == 0
+}
+
+# Save role name if there are rouge privileged roles
+PrivilegedRolesWithoutExpirationPeriod contains Role.DisplayName if {
+    some Role in input.privileged_roles
+    PrivilegedRoleExclusions(Role, "MS.AAD.7.4v1") == true
+}
+
+# If you have the correct license & no rouge roles with permenant assignment, pass
+tests contains {
+    "PolicyId": "MS.AAD.7.4v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-MgBetaSubscribedSku", "Get-PrivilegedRole"],
+    "ActualValue": PrivilegedRolesWithoutExpirationPeriod,
+    "ReportDetails": ReportDetailsArrayLicenseWarning(PrivilegedRolesWithoutExpirationPeriod, DescriptionString),
+    "RequirementMet": Status
+} if {
+    DescriptionString := "role(s) that contain users with permanent active assignment"
+    Conditions := [
+        Count(Aad2P2Licenses) > 0,
+        Count(PrivilegedRolesWithoutExpirationPeriod) == 0
+    ]
+    Status := Count(FilterArray(Conditions, false)) == 0
+}
+
+#
+# MS.AAD.7.5v1
+#--
+
+# Get all privileged roles that do not have a start date
+RolesAssignedOutsidePim contains Role.DisplayName if {
+    some Role in input.privileged_roles
+    NoStartAssignments := {is_null(X.StartDateTime) | some X in Role.Assignments}
+
+    Count(FilterArray(NoStartAssignments, true)) > 0
+}
+
+# If you have the correct license & no roles without start date, pass
+tests contains {
+    "PolicyId": "MS.AAD.7.5v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-MgBetaSubscribedSku", "Get-PrivilegedRole"],
+    "ActualValue": RolesAssignedOutsidePim,
+    "ReportDetails": ReportDetailsArrayLicenseWarning(RolesAssignedOutsidePim, DescriptionString),
+    "RequirementMet": Status
+} if {
+    DescriptionString := "role(s) assigned to users outside of PIM"
+    Conditions := [
+        Count(Aad2P2Licenses) > 0,
+        Count(RolesAssignedOutsidePim) == 0
+    ]
+    Status := Count(FilterArray(Conditions, false)) == 0
+}
+#--
+
+#
+# MS.AAD.7.6v1
+#--
+
+# Save role name if id is a specific string and approval is
+# not required.
+RolesWithoutApprovalRequired contains Offender if {
+    some Role in input.privileged_roles
+    some Rule in Role.Rules
+
+    Offender := sprintf("%v(%v)", [Rule.RuleSource, Rule.RuleSourceType])
+    Role.DisplayName == "Global Administrator"
+    Rule.Id == "Approval_EndUser_Assignment"
+    Rule.Setting.IsApprovalRequired == false
+}
+
+# If you have the correct license & Global Administor
+# is not in RolesWithoutApprovalRequired, pass
+tests contains {
+    "PolicyId": "MS.AAD.7.6v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-MgBetaSubscribedSku", "Get-PrivilegedRole"],
+    "ActualValue": RolesWithoutApprovalRequired,
+    "ReportDetails": ReportDetailsArrayLicenseWarning(RolesWithoutApprovalRequired, DescriptionString),
+    "RequirementMet": Status
+} if {
+    DescriptionString := "role(s) or group(s) allowing activation without approval found"
+    Conditions := [
+        Count(Aad2P2Licenses) > 0,
+        Count(RolesWithoutApprovalRequired) == 0
+    ]
+    Status := Count(FilterArray(Conditions, false)) == 0
+}
+#--
+
+#
+# MS.AAD.7.7v1
+#--
+
+# Save role name if id is a specific string and no
+# notification recipients.
+RolesWithoutActiveAssignmentAlerts contains Offender if {
+    some Role in input.privileged_roles
+    some Rule in Role.Rules
+
+    Offender := sprintf("%v(%v)", [Rule.RuleSource, Rule.RuleSourceType])
+    Rule.Id == "Notification_Admin_Admin_Assignment"
+    Count(Rule.NotificationRecipients) == 0
+}
+
+# Save role name if id is a specific string and no
+# notification recipients.
+RolesWithoutEligibleAssignmentAlerts contains Offender if {
+    some Role in input.privileged_roles
+    some Rule in Role.Rules
+
+    Offender := sprintf("%v(%v)", [Rule.RuleSource, Rule.RuleSourceType])
+    Rule.Id == "Notification_Admin_Admin_Eligibility"
+    Count(Rule.NotificationRecipients) == 0
+}
+
+# If you have the correct license & all roles have assignment
+# alerts, pass
+tests contains {
+    "PolicyId": "MS.AAD.7.7v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-MgBetaSubscribedSku", "Get-PrivilegedRole"],
+    "ActualValue": RolesWithoutAssignmentAlerts,
+    "ReportDetails": ReportDetailsArrayLicenseWarning(RolesWithoutAssignmentAlerts, DescriptionString),
+    "RequirementMet": Status
+} if {
+    DescriptionString := "role(s) or group(s) without notification e-mail configured for role assignments found"
+    RolesWithoutAssignmentAlerts := RolesWithoutActiveAssignmentAlerts | RolesWithoutEligibleAssignmentAlerts
+    Conditions := [
+        Count(Aad2P2Licenses) > 0,
+        Count(RolesWithoutAssignmentAlerts) == 0
+    ]
+    Status := Count(FilterArray(Conditions, false)) == 0
+}
+#--
+
+#
+# MS.AAD.7.8v1
+#--
+
+# Save role name if id is a specific string, notification
+# type is a specific string, & no notification recipients.
+GlobalAdminsWithoutActivationAlert contains Offender if {
+    some Role in input.privileged_roles
+    some Rule in Role.Rules
+
+    Offender := sprintf("%v(%v)", [Rule.RuleSource, Rule.RuleSourceType])
+    Role.DisplayName == "Global Administrator"
+    Rule.Id == "Notification_Admin_EndUser_Assignment"
+    Rule.NotificationType == "Email"
+    Count(Rule.NotificationRecipients) == 0
+}
+
+# If you have the correct license & Global Admin
+# has activation alert, pass
+tests contains {
+    "PolicyId": "MS.AAD.7.8v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-MgBetaSubscribedSku", "Get-PrivilegedRole"],
+    "ActualValue": GlobalAdminsWithoutActivationAlert,
+    "ReportDetails": ReportDetailsArrayLicenseWarning(GlobalAdminsWithoutActivationAlert, DescriptionString),
+    "RequirementMet": Status
+} if {
+    DescriptionString := "role(s) or group(s) without notification e-mail configured for Global Administrator activations found"
+    Conditions := [
+        Count(Aad2P2Licenses) > 0,
+        Count(GlobalAdminsWithoutActivationAlert) == 0
+    ]
+    Status := Count(FilterArray(Conditions, false)) == 0
+}
+#--
+
+#
+# MS.AAD.7.9v1
+#--
+
+OtherAdminsWithoutActivationAlert contains Offender if {
+    some Role in input.privileged_roles
+    some Rule in Role.Rules
+
+    Offender := sprintf("%v(%v)", [Rule.RuleSource, Rule.RuleSourceType])
+    not Role.DisplayName == "Global Administrator"
+    Rule.Id == "Notification_Admin_EndUser_Assignment"
+    Rule.NotificationType == "Email"
+    Count(Rule.NotificationRecipients) == 0
+}
+
+# If there are no roles without activation alert &
+# correct license, pass
+tests contains {
+    "PolicyId": "MS.AAD.7.9v1",
+    "Criticality": "Should",
+    "Commandlet": ["Get-MgBetaSubscribedSku", "Get-PrivilegedRole"],
+    "ActualValue": OtherAdminsWithoutActivationAlert,
+    "ReportDetails": ReportDetailsArrayLicenseWarning(OtherAdminsWithoutActivationAlert, DescriptionString),
+    "RequirementMet": Status
+} if {
+    DescriptionString := "role(s) or group(s) without notification e-mail configured for role activations found"
+    Conditions := [
+        Count(Aad2P2Licenses) > 0,
+        Count(OtherAdminsWithoutActivationAlert) == 0
+    ]
+    Status := Count(FilterArray(Conditions, false)) == 0
+}
+#--
+
+############
+# MS.AAD.8 #
+############
+
+#
+# MS.AAD.8.1v1
+#--
+
+# must hardcode the ID. See
+# https://docs.microsoft.com/en-us/azure/active-directory/enterprise-users/users-restrict-guest-permissions
+# pattern matching on function args: https://docs.styra.com/regal/rules/idiomatic/equals-pattern-matching
+# return specified string based on id passed to method.
+LevelAsString("2af84b1e-32c8-42b7-82bc-daa82404023b") := "Restricted access"
+
+LevelAsString("10dae51f-b6af-4016-8d66-8c2a99b929b3") := "Limited access"
+
+LevelAsString("a0b1b346-4d3e-4e8b-98f8-753987be4970") := "Same as member users"
+
+LevelAsString(Id) := "Unknown" if not Id in [
+    RESTRICTEDACCESS,
+    LIMITEDACCESS,
+    MEMBERUSER
+]
+
+# save the policy ids that do not have the specified
+# guest role ids
+AuthPoliciesBadRoleId contains Policy.Id if {
+    some Policy in input.authorization_policies
+    not Policy.GuestUserRoleId in [
+        LIMITEDACCESS,
+        RESTRICTEDACCESS
+    ]
+}
+
+# Get role ids & associated levels for all policies
+AllAuthPoliciesRoleIds contains {
+    "GuestUserRoleIdString": Level,
+    "GuestUserRoleId": Policy.GuestUserRoleId,
+    "Id": Policy.Id
+} if {
+    some Policy in input.authorization_policies
+    Level := LevelAsString(Policy.GuestUserRoleId)
+}
+
+# Create string for all policies with role level
+RoleIdByPolicy contains concat("", ["\"", Level, "\"", " (", Policy.Id, ")"]) if {
+    some Policy in input.authorization_policies
+    Level := LevelAsString(Policy.GuestUserRoleId)
+}
+
+# If no roles with bad roles, pass
+tests contains {
+    "PolicyId": "MS.AAD.8.1v1",
+    "Criticality": "Should",
+    "Commandlet": ["Get-MgBetaPolicyAuthorizationPolicy"],
+    "ActualValue": {"all_roleid_values": AllAuthPoliciesRoleIds},
+    "ReportDetails": ReportDetail,
+    "RequirementMet": Status
+} if {
+    Status := Count(AuthPoliciesBadRoleId) == 0
+    ReportDetail := concat("", ["Permission level set to ", concat(", ", RoleIdByPolicy)])
+}
+#--
+
+#
+# MS.AAD.8.2v1
+#--
+
+# Get all policies that allow invites from guests & admins
+AuthPoliciesBadAllowInvites contains Policy.Id if {
+    some Policy in input.authorization_policies
+    Policy.AllowInvitesFrom != "adminsAndGuestInviters"
+}
+
+# Get invite setting for all policies
+AllAuthPoliciesAllowInvites contains {
+    "AllowInvitesFromValue": Policy.AllowInvitesFrom,
+    "PolicyId": Policy.Id
+} if {
+    some Policy in input.authorization_policies
+}
+
+# Create string for all policies with invite setting
+AllowInvitesByPolicy contains concat("", ["\"", Policy.AllowInvitesFrom, "\"", " (", Policy.Id, ")"]) if {
+    some Policy in input.authorization_policies
+}
+
+# If no roles with bad invite setting, pass
+tests contains {
+    "PolicyId": "MS.AAD.8.2v1",
+    "Criticality": "Should",
+    "Commandlet": ["Get-MgBetaPolicyAuthorizationPolicy"],
+    "ActualValue": {"all_allow_invite_values": AllAuthPoliciesAllowInvites},
+    "ReportDetails": ReportDetail,
+    "RequirementMet": Status
+} if {
+    Status := Count(AuthPoliciesBadAllowInvites) == 0
+    ReportDetail := concat("", ["Permission level set to ", concat(", ", AllowInvitesByPolicy)])
+}
+#--
+
+#
+# MS.AAD.8.3v1
+#--
+
+# At this time we are unable to test for X because of Y
+tests contains {
+    "PolicyId": "MS.AAD.8.3v1",
+    "Criticality": "Should/Not-Implemented",
+    "Commandlet": [],
+    "ActualValue": [],
+    "ReportDetails": NotCheckedDetails("MS.AAD.8.3v1"),
+    "RequirementMet": false
+}
+#--
+
+############
+# MS.AAD.9 #
+############
+
+#
+# MS.AAD.9.1v1
+#--
+
+# If policy matches basic conditions, special conditions,
+# & all exclusions are intentional, save the policy name
+AIAgents contains CAPolicy.DisplayName if {
+    some CAPolicy in input.conditional_access_policies
+
+    ### Common checks for conditional access policies
+    ContainsValue(CAPolicy.Conditions.Applications.IncludeApplications, "All") == true
+    CAPolicy.State == "enabled"
+    ###
+
+    ### Conditional access checks specific to this policy
+    "all" in CAPolicy.Conditions.ClientAppTypes
+    # CAPolicy.Conditions.AgentIdRiskLevels is a string, which can contain multiple values
+    # The helper function EnsureTrimmedArray turns the string into a comma delimited list
+    # with leading and trailing spaces removed
+    "high" in EnsureTrimmedArray(CAPolicy.Conditions.AgentIdRiskLevels)
+    "block" in CAPolicy.GrantControls.BuiltInControls
+    "All" in CAPolicy.Conditions.ClientApplications.IncludeAgentIdServicePrincipals
+    ###
+
+    # Only match policies with user and group exclusions per the confile file
+    AppExclusionsFullyExempt(CAPolicy, "MS.AAD.9.1v1") == true
+}
+
+default AAD_9_1_Not_Applicable_Due_To_Environment := false
+
+# Returns true if the M365 Environment used by the tenant does not support AI Agents
+AAD_9_1_Not_Applicable_Due_To_Environment  := true if {
+    # Check for an environment the feature is not available in
+    input.scuba_config.M365Environment in {"gcchigh", "dod"}
+    # Only N/A if no valid policies are found, future proofing in case the feature becomes available
+    Count(AIAgents) == 0
+    # Only N/A if the tenant does have the required license, otherwise results in a license error
+    Count(Aad2P2Licenses) > 0
+}
+
+# First test is for N/A case
+tests contains {
+    "PolicyId": PolicyId,
+    "Criticality": "Shall/Not-Implemented",
+    "Commandlet": ["Get-MgBetaIdentityConditionalAccessPolicy"],
+    "ActualValue": [],
+    "ReportDetails": CheckedSkippedDetails(PolicyId, Reason),
+    "RequirementMet": false
+} if {
+    PolicyId := "MS.AAD.9.1v1"
+    Reason := concat(" ", [
+    "This policy is not applicable to GCC High or DOD environments because the feature",
+    "is not yet available. See %v for more info"
+    ])
+    AAD_9_1_Not_Applicable_Due_To_Environment == true
+}
+
+# Pass if at least 1 policy meets all conditions & has correct
+# license.
+tests contains {
+    "PolicyId": "MS.AAD.9.1v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-MgBetaIdentityConditionalAccessPolicy"],
+    "ActualValue": AIAgents,
+    "ReportDetails": ReportDetailsArrayLicenseWarningCap(AIAgents, DescriptionString),
+    "RequirementMet": Status
+} if {
+    DescriptionString := "conditional access policy(s) found that meet(s) all requirements"
+    AAD_9_1_Not_Applicable_Due_To_Environment == false
+    Conditions := [
+        Count(Aad2P2Licenses) > 0,
+        Count(AIAgents) > 0
+    ]
+    Status := Count(FilterArray(Conditions, false)) == 0
+}
+#--

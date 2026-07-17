@@ -1,0 +1,8 @@
+Description: Test Config for MS.SECURITYSUITE.2.1v1 Compliant Matching User (email only)
+ProductNames:
+  - securitysuite
+LogIn: false
+SecuritySuite:
+  MS.SECURITYSUITE.2.1v1:
+    SensitiveUsers:
+      - agencyuserglobalreader@tqhjy.onmicrosoft.com

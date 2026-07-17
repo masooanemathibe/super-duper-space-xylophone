@@ -1,0 +1,76 @@
+Description: |
+  This is a ScubaGear sample configuration file for compliance use.
+  In order to pass/omit certain policy checks made during a ScubaGear assessment run, necessary action
+  is required to provide specific values unique to both your organization and M365 tenant in the fields below.
+  Please read and understand the full ScubaGear configuration file documentation for both adding additional fields or modifying the fields below.
+  The documentation can be found here: https://github.com/cisagov/ScubaGear/blob/main/docs/configuration/configuration.md
+
+# The list of M365 Product/SCuBA baselines ScubaGear will assess.
+ProductNames:
+  - aad
+  - securitysuite
+  - exo
+  - powerplatform
+  - sharepoint
+  - teams
+
+# This parameter is used to authenticate to the different commercial/government environments.
+# See https://github.com/cisagov/ScubaGear/blob/main/docs/configuration/parameters.md#m365environment
+# for list of acceptable values
+M365Environment: commercial
+
+# The following fields are used to document what organization this configuration file belongs to.
+OrgName: Department of Example
+OrgUnitName: Subdepartment of Example
+
+# The OmitPolicy field can be used to exclude policies from the SCuBA assessment
+# results (e.g., for controls that are met using a third party tool or acceptance of risk).
+# See https://github.com/cisagov/ScubaGear/blob/main/docs/configuration/configuration.md#omit-policies
+# for in-depth details
+OmitPolicy: {}
+
+# Policies can be annotated to mark incorrect results and document plans of action.
+# The annotation is appended in the Details column of the HTML report for the applicable
+# controls. See https://github.com/cisagov/ScubaGear/blob/main/docs/configuration/configuration.md#annotate-policies
+# for in-depth details.
+AnnotatePolicy: {}
+
+# For product specific details on filling out the fields below, see:
+# https://github.com/cisagov/ScubaGear/blob/main/docs/configuration/configuration.md#product-specific-configuration
+# For specifics about YAML syntax: https://github.com/cisagov/ScubaGear/blob/main/docs/configuration/configuration.md#anchors-and-aliases
+Aad:
+  MS.AAD.1.1v1: &OrgCapExclusions
+    CapExclusions:
+      Groups:
+        - ""
+      Users:
+        - ""
+      Applications:
+        - ""
+      GuestUserTypes:
+        - ""
+  MS.AAD.2.1v1: *OrgCapExclusions
+  MS.AAD.2.3v1: *OrgCapExclusions
+  MS.AAD.3.1v1: *OrgCapExclusions
+  MS.AAD.3.2v2: *OrgCapExclusions
+  MS.AAD.3.6v1: *OrgCapExclusions
+  MS.AAD.3.7v1: *OrgCapExclusions
+  MS.AAD.3.8v1: *OrgCapExclusions
+  MS.AAD.3.9v1: *OrgCapExclusions
+  MS.AAD.7.4v1:
+    RoleExclusions:
+      Groups:
+        - ""
+      Users:
+        - ""
+SecuritySuite:
+  MS.SECURITYSUITE.2.1v1:
+    SensitiveUsers:
+      - ""
+  MS.SECURITYSUITE.2.3v1:
+    PartnerDomains:
+      - ""
+Exo:
+  MS.EXO.1.1v2:
+    AllowedForwardingDomains:
+      - ""

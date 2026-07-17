@@ -1,0 +1,1645 @@
+ProductName: aad
+TestPlan:
+  - PolicyId: MS.AAD.1.1v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.AAD.1.1v1 Non-Compliant case - missing client app type exchangeActiveSync
+        Preconditions:
+          - Command: UpdateCachedConditionalAccessPolicyByName
+            Splat:
+              displayName: MS.AAD.1.1v1 Legacy authentication SHALL be blocked
+              updates:
+                state: enabled
+                Conditions:
+                  Applications:
+                    IncludeApplications: ["All"]
+                    ExcludeApplications: []
+                  Users:
+                    IncludeUsers: ["All"]
+                    ExcludeUsers: []
+                    IncludeGroups: []
+                    ExcludeGroups: []
+                    IncludeRoles: []
+                    ExcludeRoles: []
+                  ClientAppTypes:
+                    - other
+                GrantControls:
+                  BuiltInControls:
+                    - block
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.1.1v1 Non-Compliant case - instead of blocking access, requires an approved application
+        Preconditions:
+          - Command: UpdateCachedConditionalAccessPolicyByName
+            Splat:
+              displayName: MS.AAD.1.1v1 Legacy authentication SHALL be blocked
+              updates:
+                state: enabled
+                Conditions:
+                  Applications:
+                    IncludeApplications: ["All"]
+                    ExcludeApplications: []
+                  Users:
+                    IncludeUsers: ["All"]
+                    ExcludeUsers: []
+                    IncludeGroups: []
+                    ExcludeGroups: []
+                    IncludeRoles: []
+                    ExcludeRoles: []
+                  ClientAppTypes:
+                    - other
+                GrantControls:
+                  BuiltInControls:
+                    - approvedApplication
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.1.1v1 Compliant case
+        Preconditions:
+          - Command: UpdateCachedConditionalAccessPolicyByName
+            Splat:
+              displayName: MS.AAD.1.1v1 Legacy authentication SHALL be blocked
+              updates:
+                state: enabled
+                Conditions:
+                  Applications:
+                    IncludeApplications: ["All"]
+                    ExcludeApplications: []
+                  Users:
+                    IncludeUsers: ["All"]
+                    ExcludeUsers: []
+                    IncludeGroups: []
+                    ExcludeGroups: []
+                    IncludeRoles: []
+                    ExcludeRoles: []
+                    ExcludeGuestsOrExternalUsers: null
+                  ClientAppTypes:
+                    - other
+                    - exchangeActiveSync
+                GrantControls:
+                  BuiltInControls:
+                    - block
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.AAD.2.2v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.AAD.2.2v1 Not Checked
+        Preconditions: []
+        Postconditions: []
+        IsNotChecked: true
+        ExpectedResult: false
+
+  - PolicyId: MS.AAD.3.1v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.AAD.3.1v1 Non-Compliant case - Bad Authentication Strength included
+        Preconditions:
+          - Command: UpdateCachedConditionalAccessPolicyByName
+            Splat:
+              displayName: Automated Test 1 - DO NOT MODIFY
+              updates:
+                State: enabled
+                Conditions:
+                  Users:
+                    IncludeUsers: ["All"]
+                    ExcludeUsers: []
+                    IncludeGroups: []
+                    ExcludeGroups: []
+                    IncludeRoles: []
+                    ExcludeRoles: []
+                    ExcludeGuestsOrExternalUsers: null
+                  Applications:
+                    IncludeApplications: ["All"]
+                    ExcludeApplications: []
+                GrantControls:
+                  AuthenticationStrength:
+                    AllowedCombinations:
+                      - "windowsHelloForBusiness"
+                      - "fido2"
+                      - "x509CertificateMultiFactor"
+                      - "password,sms"
+                  BuiltInControls: []
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.3.1v1 Compliant case - Phishing-resistant MFA enabled
+        Preconditions:
+          - Command: UpdateCachedConditionalAccessPolicyByName
+            Splat:
+              displayName: Automated Test 1 - DO NOT MODIFY
+              updates:
+                State: enabled
+                Conditions:
+                  Users:
+                    IncludeUsers: ["All"]
+                    ExcludeUsers: []
+                    IncludeGroups: []
+                    ExcludeGroups: []
+                    IncludeRoles: []
+                    ExcludeRoles: []
+                    ExcludeGuestsOrExternalUsers: null
+                  Applications:
+                    IncludeApplications: ["All"]
+                    ExcludeApplications: []
+                GrantControls:
+                  AuthenticationStrength:
+                    AllowedCombinations:
+                      - "windowsHelloForBusiness"
+                      - "fido2"
+                      - "x509CertificateMultiFactor"
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.AAD.3.2v2
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.AAD.3.2v2 Non-Compliant case - No MFA policies
+        ### This test deletes the conditional access policies from the provider export which should result in a non-compliant result
+        ### The reason we have to delete the CAPs from the export is because the test tenants have an MFA policy enabled which would cause this scenario to pass
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                conditional_access_policies: []
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.3.2v2 Compliant case - Non specific MFA method is enforced via BuiltInControls
+        ### This test creates a non-specific MFA policy with the BuiltInControls node instead of authentication strength
+        Preconditions:
+          - Command: UpdateCachedConditionalAccessPolicyByName
+            Splat:
+              displayName: Automated Test 1 - DO NOT MODIFY
+              updates:
+                State: enabled
+                Conditions:
+                  Users:
+                    IncludeUsers: ["All"]
+                    ExcludeUsers: []
+                    IncludeGroups: []
+                    ExcludeGroups: []
+                    IncludeRoles: []
+                    ExcludeRoles: []
+                    ExcludeGuestsOrExternalUsers: null
+                  Applications:
+                    IncludeApplications: ["All"]
+                    ExcludeApplications: []
+                GrantControls:
+                  BuiltInControls:
+                    - "mfa"
+        Postconditions: []
+        ExpectedResult: true
+      - TestDescription: MS.AAD.3.2v2 Compliant case - Authentication Strength with Multifactor Authentication is enforced
+        ### This test creates a non-specific MFA policy with authentication strength set to "Multifactor Authentication"
+        Preconditions:
+          - Command: UpdateCachedConditionalAccessPolicyByName
+            Splat:
+              displayName: Automated Test 1 - DO NOT MODIFY
+              updates:
+                State: enabled
+                Conditions:
+                  Users:
+                    IncludeUsers: ["All"]
+                    ExcludeUsers: []
+                    IncludeGroups: []
+                    ExcludeGroups: []
+                    IncludeRoles: []
+                    ExcludeRoles: []
+                    ExcludeGuestsOrExternalUsers: null
+                  Applications:
+                    IncludeApplications: ["All"]
+                    ExcludeApplications: []
+                GrantControls:
+                  AuthenticationStrength:
+                    AllowedCombinations:
+                      - "windowsHelloForBusiness"
+                      - "fido2"
+                      - "x509CertificateMultiFactor"
+                      - "deviceBasedPush"
+                      - "temporaryAccessPassOneTime"
+                      - "temporaryAccessPassMultiUse"
+                      - "password,microsoftAuthenticatorPush"
+                      - "password,softwareOath"
+                      - "password,hardwareOath"
+                      - "password,sms"
+                      - "password,voice"
+                      - "federatedMultiFactor"
+                      - "microsoftAuthenticatorPush,federatedSingleFactor"
+                      - "softwareOath,federatedSingleFactor"
+                      - "hardwareOath,federatedSingleFactor"
+                      - "sms,federatedSingleFactor"
+                      - "voice,federatedSingleFactor"
+        Postconditions: []
+        ExpectedResult: true
+      - TestDescription: MS.AAD.3.2v2 Compliant case - Custom Authentication Strength passwordless MFA
+        ### This test creates a custom MFA policy with authentication strength set to allow passwordless MFA only
+        Preconditions:
+          - Command: UpdateCachedConditionalAccessPolicyByName
+            Splat:
+              displayName: Automated Test 1 - DO NOT MODIFY
+              updates:
+                State: enabled
+                Conditions:
+                  Users:
+                    IncludeUsers: ["All"]
+                    ExcludeUsers: []
+                    IncludeGroups: []
+                    ExcludeGroups: []
+                    IncludeRoles: []
+                    ExcludeRoles: []
+                    ExcludeGuestsOrExternalUsers: null
+                  Applications:
+                    IncludeApplications: ["All"]
+                    ExcludeApplications: []
+                GrantControls:
+                  AuthenticationStrength:
+                    AllowedCombinations:
+                      - "deviceBasedPush"
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.AAD.3.3v2
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.AAD.3.3v2 Not-applicable case - MS Auth Disabled
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                authentication_method[0].authentication_method_feature_settings:
+                  Id: MicrosoftAuthenticator
+                  State: disabled
+        Postconditions: []
+        ExpectedResult: true
+      - TestDescription: MS.AAD.3.3v2 Non-Compliant case - MS Auth App name and Geolocation disabled
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                authentication_method[0].authentication_method_feature_settings:
+                  - Id: MicrosoftAuthenticator
+                    State: enabled
+                    FeatureSettings:
+                      DisplayAppInformationRequiredState:
+                        State: disabled
+                      DisplayLocationInformationRequiredState:
+                        State: disabled
+                    IncludeTargets:
+                      - Id: "all_users"
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.3.3v2 Compliant case - MS Auth Configured Correctly
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                authentication_method[0].authentication_method_feature_settings:
+                  - Id: MicrosoftAuthenticator
+                    State: enabled
+                    IsSoftwareOathEnabled: false
+                    FeatureSettings:
+                      DisplayAppInformationRequiredState:
+                        State: enabled
+                        IncludeTarget:
+                          Id: "all_users"
+                      DisplayLocationInformationRequiredState:
+                        State: enabled
+                        IncludeTarget:
+                          Id: "all_users"
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.AAD.3.4v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.AAD.3.4v1 Non-compliant case - preMigration
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                authentication_method[0].authentication_method_policy.PolicyMigrationState: preMigration
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.3.4v1 Compliant case - Migration complete
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                authentication_method[0].authentication_method_policy.PolicyMigrationState: migrationComplete
+        Postconditions: []
+        ExpectedResult: true
+      - TestDescription: MS.AAD.3.4v1 Non-compliant case - migrationInProgress
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                authentication_method[0].authentication_method_policy.PolicyMigrationState: migrationInProgress
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.3.4v1 Compliant case - null
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                authentication_method:
+                  - authentication_method_policy:
+                      PolicyMigrationState: null
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.AAD.3.5v2
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.AAD.3.5v2 Non-compliant case - Sms enabled
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                authentication_method[0].authentication_method_feature_settings:
+                  - Id: Sms
+                    State: enabled
+                  - Id: Voice
+                    State: disabled
+                  - Id: Email
+                    State: disabled
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.3.5v2 Non-compliant case - Voice enabled
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                authentication_method[0].authentication_method_feature_settings:
+                  - Id: Sms
+                    State: disabled
+                  - Id: Voice
+                    State: enabled
+                  - Id: Email
+                    State: disabled
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.3.5v2 Non-compliant case - Email enabled
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                authentication_method[0].authentication_method_feature_settings:
+                  - Id: Sms
+                    State: disabled
+                  - Id: Voice
+                    State: disabled
+                  - Id: Email
+                    State: enabled
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.3.5v2 Compliant case
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                authentication_method[0].authentication_method_feature_settings:
+                  - Id: Sms
+                    State: disabled
+                  - Id: Voice
+                    State: disabled
+                  - Id: Email
+                    State: disabled
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.AAD.3.6v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.AAD.3.6v1 Non-Compliant case - Bad Authentication Strength included
+        ### This test injects an authentication strength of password,sms which is non-compliant
+        Preconditions:
+          - Command: UpdateCachedConditionalAccessPolicyByName
+            Splat:
+              displayName: Automated Test 1 - DO NOT MODIFY
+              updates:
+                State: enabled
+                Conditions:
+                  Users:
+                    IncludeUsers: []
+                    ExcludeUsers: []
+                    IncludeRoles:
+                      - "158c047a-c907-4556-b7ef-446551a6b5f7"
+                      - "62e90394-69f5-4237-9190-012177145e10"
+                      - "8ac3fc64-6eca-42ea-9e69-59f4c7b60eb2"
+                      - "e8611ab8-c189-46e8-94e1-60213ab1f814"
+                      - "f28a1f50-f6e7-4571-818b-6a12f2af6b6c"
+                      - "fe930be7-5e62-47db-91af-98c3a49a38b1"
+                      - "29232cdf-9323-42fd-ade2-1d097af3e4de"
+                      - "9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3"
+                    IncludeGroups: []
+                    ExcludeGroups: []
+                    ExcludeRoles: []
+                    ExcludeGuestsOrExternalUsers: null
+                  Applications:
+                    IncludeApplications: ["All"]
+                    ExcludeApplications: []
+                GrantControls:
+                  AuthenticationStrength:
+                    AllowedCombinations:
+                      - "windowsHelloForBusiness"
+                      - "fido2"
+                      - "x509CertificateMultiFactor"
+                      - "password,sms"
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.3.6v1 Compliant case
+        ### This test creates a phishing-resistant MFA policy and applies it to the required roles
+        Preconditions:
+          - Command: UpdateCachedConditionalAccessPolicyByName
+            Splat:
+              displayName: Automated Test 1 - DO NOT MODIFY
+              updates:
+                State: enabled
+                Conditions:
+                  Users:
+                    IncludeUsers: []
+                    ExcludeUsers: []
+                    IncludeRoles:
+                      - "158c047a-c907-4556-b7ef-446551a6b5f7"
+                      - "62e90394-69f5-4237-9190-012177145e10"
+                      - "8ac3fc64-6eca-42ea-9e69-59f4c7b60eb2"
+                      - "e8611ab8-c189-46e8-94e1-60213ab1f814"
+                      - "f28a1f50-f6e7-4571-818b-6a12f2af6b6c"
+                      - "fe930be7-5e62-47db-91af-98c3a49a38b1"
+                      - "29232cdf-9323-42fd-ade2-1d097af3e4de"
+                      - "9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3"
+                    IncludeGroups: []
+                    ExcludeGroups: []
+                    ExcludeRoles: []
+                    ExcludeGuestsOrExternalUsers: null
+                  Applications:
+                    IncludeApplications: ["All"]
+                    ExcludeApplications: []
+                GrantControls:
+                  AuthenticationStrength:
+                    AllowedCombinations:
+                      - "windowsHelloForBusiness"
+                      - "fido2"
+                      - "x509CertificateMultiFactor"
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.AAD.3.7v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.AAD.3.7v1 Non-Compliant case - require compliant or domain joined device only for specific user
+        Preconditions:
+          - Command: UpdateCachedConditionalAccessPolicyByName
+            Splat:
+              displayName: Automated Test 1 - DO NOT MODIFY
+              updates:
+                State: enabled
+                GrantControls.BuiltInControls:
+                  - "compliantDevice"
+                  - "domainJoinedDevice"
+                GrantControls.Operator: OR
+                Conditions:
+                  Users:
+                    IncludeUsers: ["e897fa07-cfcc-4aeb-9b61-afbf173fb9df"]
+                    ExcludeUsers: []
+                    IncludeRoles: []
+                    IncludeGroups: []
+                    ExcludeGroups: []
+                    ExcludeRoles: []
+                  Applications:
+                    IncludeApplications: ["All"]
+                    ExcludeApplications: []
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.3.7v1 Compliant case - require compliant or domain joined device for everyone
+        Preconditions:
+          - Command: UpdateCachedConditionalAccessPolicyByName
+            Splat:
+              displayName: Automated Test 1 - DO NOT MODIFY
+              updates:
+                State: enabled
+                GrantControls.BuiltInControls:
+                  - "compliantDevice"
+                  - "domainJoinedDevice"
+                GrantControls.Operator: OR
+                Conditions:
+                  Users:
+                    IncludeUsers: ["All"]
+                    ExcludeUsers: []
+                    IncludeRoles: []
+                    IncludeGroups: []
+                    ExcludeGroups: []
+                    ExcludeRoles: []
+                    ExcludeGuestsOrExternalUsers: null
+                  Applications:
+                    IncludeApplications: ["All"]
+                    ExcludeApplications: []
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.AAD.3.8v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.AAD.3.8v1 Non-Compliant case - Managed device to register MFA only for a specific user
+        Preconditions:
+          - Command: UpdateCachedConditionalAccessPolicyByName
+            Splat:
+              displayName: Automated Test 1 - DO NOT MODIFY
+              updates:
+                State: enabled
+                GrantControls.BuiltInControls:
+                  - "compliantDevice"
+                  - "domainJoinedDevice"
+                GrantControls.Operator: OR
+                Conditions:
+                  Users:
+                    IncludeUsers: ["d4ff2a72-7c1f-4690-b61d-aaaa6976bca3"]
+                    ExcludeUsers: []
+                    IncludeRoles: []
+                    IncludeGroups: []
+                    ExcludeGroups: []
+                    ExcludeRoles: []
+                  Applications:
+                    IncludeApplications: []
+                    ExcludeApplications: []
+                    IncludeUserActions: ["urn:user:registersecurityinfo"]
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.3.8v1 Compliant case - Compliant or domain managed device to register MFA
+        Preconditions:
+          - Command: UpdateCachedConditionalAccessPolicyByName
+            Splat:
+              displayName: Automated Test 1 - DO NOT MODIFY
+              updates:
+                State: enabled
+                GrantControls.BuiltInControls:
+                  - "compliantDevice"
+                  - "domainJoinedDevice"
+                GrantControls.Operator: OR
+                Conditions:
+                  Users:
+                    IncludeUsers: ["All"]
+                    ExcludeUsers: []
+                    IncludeRoles: []
+                    IncludeGroups: []
+                    ExcludeGroups: []
+                    ExcludeRoles: []
+                    ExcludeGuestsOrExternalUsers: null
+                  Applications:
+                    IncludeApplications: []
+                    ExcludeApplications: []
+                    IncludeUserActions: ["urn:user:registersecurityinfo"]
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.AAD.3.9v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.AAD.3.9v1 Non-Compliant case - Device code block disabled
+        Preconditions:
+          - Command: UpdateCachedConditionalAccessPolicyByName
+            Splat:
+              displayName: MS.AAD.3.9v1 Device code authentication SHOULD be blocked
+              updates:
+                state: disabled
+                Conditions:
+                  Applications:
+                    IncludeApplications: ["All"]
+                    ExcludeApplications: []
+                  Users:
+                    IncludeUsers: ["All"]
+                    ExcludeUsers: []
+                    IncludeGroups: []
+                    ExcludeGroups: []
+                    IncludeRoles: []
+                    ExcludeRoles: []
+                    ExcludeGuestsOrExternalUsers: null
+                  AuthenticationFlows:
+                    TransferMethods: "deviceCodeFlow"
+                GrantControls:
+                  BuiltInControls:
+                    - block
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.3.9v1 Compliant case - Device code block enabled
+        Preconditions:
+          - Command: UpdateCachedConditionalAccessPolicyByName
+            Splat:
+              displayName: MS.AAD.3.9v1 Device code authentication SHOULD be blocked
+              updates:
+                state: enabled
+                Conditions:
+                  Applications:
+                    IncludeApplications: ["All"]
+                    ExcludeApplications: []
+                  Users:
+                    IncludeUsers: ["All"]
+                    ExcludeUsers: []
+                    IncludeGroups: []
+                    ExcludeGroups: []
+                    IncludeRoles: []
+                    ExcludeRoles: []
+                    ExcludeGuestsOrExternalUsers: null
+                  AuthenticationFlows:
+                    TransferMethods: "deviceCodeFlow"
+                GrantControls:
+                  BuiltInControls:
+                    - block
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.AAD.4.1v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.AAD.4.1v1 Not Checked
+        Preconditions: []
+        Postconditions: []
+        IsNotChecked: true
+        ExpectedResult: false
+
+  - PolicyId: MS.AAD.5.1v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.AAD.5.1v1 Non-Compliant case - Allow users to register apps
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                authorization_policies[0].DefaultUserRolePermissions.AllowedToCreateApps: true
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.5.1v1 Compliant case - Do NOT allow users to register apps
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                authorization_policies[0].DefaultUserRolePermissions.AllowedToCreateApps: false
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.AAD.5.2v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.AAD.5.2v1 Non-Compliant case - Allow user to consent to apps
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                authorization_policies[0].PermissionGrantPolicyIdsAssignedToDefaultUserRole:
+                  - ManagePermissionGrantsForSelf.microsoft-user-default-recommended
+                  - ManagePermissionGrantsForOwnedResource.microsoft-dynamically-managed-permissions-for-chat
+                  - ManagePermissionGrantsForOwnedResource.microsoft-dynamically-managed-permissions-for-team
+                risky_delegated_permission_classifications:
+                  [null]
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.5.2v1 Compliant case - Allow user to consent to verified apps with no risky delegated permission classifications
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                authorization_policies[0].PermissionGrantPolicyIdsAssignedToDefaultUserRole:
+                  - ManagePermissionGrantsForSelf.microsoft-user-default-low
+                  - ManagePermissionGrantsForOwnedResource.microsoft-dynamically-managed-permissions-for-chat
+                  - ManagePermissionGrantsForOwnedResource.microsoft-dynamically-managed-permissions-for-team
+                risky_delegated_permission_classifications:
+                  [null]
+        Postconditions: []
+        ExpectedResult: true
+      - TestDescription: MS.AAD.5.2v1 Non-Compliant case - Allow user to consent to verified apps with risky delegated permission classifications
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                authorization_policies[0].PermissionGrantPolicyIdsAssignedToDefaultUserRole:
+                  - ManagePermissionGrantsForSelf.microsoft-user-default-low
+                  - ManagePermissionGrantsForOwnedResource.microsoft-dynamically-managed-permissions-for-chat
+                  - ManagePermissionGrantsForOwnedResource.microsoft-dynamically-managed-permissions-for-team
+                risky_delegated_permission_classifications:
+                  - RiskyPermClassifications:
+                      - "Mail.Send"
+                      - "Mail.Read"
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.5.2v1 Compliant case - Do NOT allow users to consent to apps - empty grant policy
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                authorization_policies[0].PermissionGrantPolicyIdsAssignedToDefaultUserRole:
+                  []
+                risky_delegated_permission_classifications:
+                  [null]
+        Postconditions: []
+        ExpectedResult: true
+      - TestDescription: MS.AAD.5.2v1 Compliant case - Do NOT allow users to consent to apps - chat teams grant policy
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                authorization_policies[0].PermissionGrantPolicyIdsAssignedToDefaultUserRole:
+                  - ManagePermissionGrantsForOwnedResource.microsoft-dynamically-managed-permissions-for-chat
+                  - ManagePermissionGrantsForOwnedResource.microsoft-dynamically-managed-permissions-for-team
+                risky_delegated_permission_classifications:
+                  [null]
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.AAD.5.3v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.AAD.5.3v1 Non-Compliant case - Empty Consent workflow configured
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                directory_settings:
+                  - DisplayName: Consent Policy Settings
+                    Values:
+                      - Name: EnableAdminConsentRequests
+                        Value: ""
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.5.3v1 Non-Compliant case - No Admin Consent workflow configured
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                directory_settings:
+                  - DisplayName: Consent Policy Settings
+                    Values:
+                      - Name: EnableAdminConsentRequests
+                        Value: "false"
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.5.3v1 Compliant case - Admin Consent workflow is configured
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                directory_settings:
+                  - DisplayName: Consent Policy Settings
+                    Values:
+                      - Name: EnableAdminConsentRequests
+                        Value: "true"
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.AAD.5.5v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.AAD.5.5v1 Non-Compliant case - Password addition not blocked for applications
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                default_app_management_policy:
+                  - ApplicationRestrictions:
+                      PasswordCredentials:
+                        - RestrictionType: passwordAddition
+                          State: disabled
+                          MaxLifetime: null
+                        - RestrictionType: symmetricKeyAddition
+                          State: enabled
+                          MaxLifetime: null
+                      KeyCredentials: []
+                    ServicePrincipalRestrictions:
+                      PasswordCredentials:
+                        - RestrictionType: passwordAddition
+                          State: enabled
+                          MaxLifetime: null
+                        - RestrictionType: symmetricKeyAddition
+                          State: enabled
+                          MaxLifetime: null
+                      KeyCredentials: []
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.5.5v1 Compliant case - All password addition is blocked
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                default_app_management_policy:
+                  - ApplicationRestrictions:
+                      PasswordCredentials:
+                        - RestrictionType: passwordAddition
+                          State: enabled
+                          MaxLifetime: null
+                        - RestrictionType: symmetricKeyAddition
+                          State: enabled
+                          MaxLifetime: null
+                      KeyCredentials: []
+                    ServicePrincipalRestrictions:
+                      PasswordCredentials:
+                        - RestrictionType: passwordAddition
+                          State: enabled
+                          MaxLifetime: null
+                        - RestrictionType: symmetricKeyAddition
+                          State: enabled
+                          MaxLifetime: null
+                      KeyCredentials: []
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.AAD.5.6v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.AAD.5.6v1 N/A case - All password addition blocked
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                default_app_management_policy:
+                  - ApplicationRestrictions:
+                      PasswordCredentials:
+                        - RestrictionType: passwordAddition
+                          State: enabled
+                          MaxLifetime: null
+                        - RestrictionType: symmetricKeyAddition
+                          State: enabled
+                          MaxLifetime: null
+                        - RestrictionType: passwordLifetime
+                          State: disabled
+                          MaxLifetime: P365D
+                      KeyCredentials: []
+                    ServicePrincipalRestrictions:
+                      PasswordCredentials:
+                        - RestrictionType: passwordAddition
+                          State: enabled
+                          MaxLifetime: null
+                        - RestrictionType: symmetricKeyAddition
+                          State: enabled
+                          MaxLifetime: null
+                        - RestrictionType: passwordLifetime
+                          State: disabled
+                          MaxLifetime: P365D
+                      KeyCredentials: []
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.5.6v1 Non-Compliant case - Password lifetime too long (180 days)
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                default_app_management_policy:
+                  - ApplicationRestrictions:
+                      PasswordCredentials:
+                        - RestrictionType: passwordAddition
+                          State: disabled
+                          MaxLifetime: null
+                        - RestrictionType: symmetricKeyAddition
+                          State: disabled
+                          MaxLifetime: null
+                        - RestrictionType: passwordLifetime
+                          State: enabled
+                          MaxLifetime: P181D
+                        - RestrictionType: symmetricKeyLifetime
+                          State: enabled
+                          MaxLifetime: P90D
+                      KeyCredentials: []
+                    ServicePrincipalRestrictions:
+                      PasswordCredentials:
+                        - RestrictionType: passwordAddition
+                          State: disabled
+                          MaxLifetime: null
+                        - RestrictionType: symmetricKeyAddition
+                          State: disabled
+                          MaxLifetime: null
+                        - RestrictionType: passwordLifetime
+                          State: enabled
+                          MaxLifetime: P90D
+                        - RestrictionType: symmetricKeyLifetime
+                          State: enabled
+                          MaxLifetime: P90D
+                      KeyCredentials: []
+        Postconditions: []
+        ExpectedResult: true
+      - TestDescription: MS.AAD.5.6v1 Compliant case - Password lifetime restricted to 90 days
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                default_app_management_policy:
+                  - ApplicationRestrictions:
+                      PasswordCredentials:
+                        - RestrictionType: passwordAddition
+                          State: disabled
+                          MaxLifetime: null
+                        - RestrictionType: symmetricKeyAddition
+                          State: disabled
+                          MaxLifetime: null
+                        - RestrictionType: passwordLifetime
+                          State: enabled
+                          MaxLifetime: P90D
+                        - RestrictionType: symmetricKeyLifetime
+                          State: enabled
+                          MaxLifetime: P90D
+                      KeyCredentials: []
+                    ServicePrincipalRestrictions:
+                      PasswordCredentials:
+                        - RestrictionType: passwordAddition
+                          State: disabled
+                          MaxLifetime: null
+                        - RestrictionType: symmetricKeyAddition
+                          State: disabled
+                          MaxLifetime: null
+                        - RestrictionType: passwordLifetime
+                          State: enabled
+                          MaxLifetime: P90D
+                        - RestrictionType: symmetricKeyLifetime
+                          State: enabled
+                          MaxLifetime: P90D
+                      KeyCredentials: []
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.AAD.5.7v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.AAD.5.7v1 Non-Compliant case - Certificate lifetime too long (367 days)
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                default_app_management_policy:
+                  - ApplicationRestrictions:
+                      PasswordCredentials: []
+                      KeyCredentials:
+                        - RestrictionType: asymmetricKeyLifetime
+                          State: enabled
+                          MaxLifetime: P367D
+                    ServicePrincipalRestrictions:
+                      PasswordCredentials: []
+                      KeyCredentials:
+                        - RestrictionType: asymmetricKeyLifetime
+                          State: enabled
+                          MaxLifetime: P367D
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.5.7v1 Non-Compliant case - Certificate lifetime not restricted for service principals
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                default_app_management_policy:
+                  - ApplicationRestrictions:
+                      PasswordCredentials: []
+                      KeyCredentials:
+                        - RestrictionType: asymmetricKeyLifetime
+                          State: enabled
+                          MaxLifetime: P180D
+                    ServicePrincipalRestrictions:
+                      PasswordCredentials: []
+                      KeyCredentials:
+                        - RestrictionType: asymmetricKeyLifetime
+                          State: disabled
+                          MaxLifetime: P180D
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.5.7v1 Compliant case - Certificate lifetime restricted to 180 days
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                default_app_management_policy:
+                  - ApplicationRestrictions:
+                      PasswordCredentials: []
+                      KeyCredentials:
+                        - RestrictionType: asymmetricKeyLifetime
+                          State: enabled
+                          MaxLifetime: P180D
+                    ServicePrincipalRestrictions:
+                      PasswordCredentials: []
+                      KeyCredentials:
+                        - RestrictionType: asymmetricKeyLifetime
+                          State: enabled
+                          MaxLifetime: P180D
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.AAD.6.1v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.AAD.6.1v1 Compliant case - User passwords for all domains are set to not expire
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                domain_settings:
+                  - Id: root1.com
+                    PasswordValidityPeriodInDays: 2147483647
+                    IsVerified: true
+                    AuthenticationType: "Managed"
+                    IsRoot: true
+                  - Id: root2.com
+                    PasswordValidityPeriodInDays: 2147483647
+                    IsVerified: true
+                    AuthenticationType: "Managed"
+                    IsRoot: true
+                  - Id: sub.root1.com
+                    PasswordValidityPeriodInDays: null
+                    IsVerified: true
+                    AuthenticationType: "Managed"
+                    IsRoot: false
+                  - Id: sub.root2.com
+                    PasswordValidityPeriodInDays: null
+                    IsVerified: true
+                    AuthenticationType: "Managed"
+                    IsRoot: false
+                  - Id: unverified.domain.com
+                    PasswordValidityPeriodInDays: null
+                    IsVerified: false
+                    AuthenticationType: "Managed"
+                    IsRoot: false
+                  - Id: federated.domain.com
+                    PasswordValidityPeriodInDays: null
+                    IsVerified: false
+                    AuthenticationType: "Federated"
+                    IsRoot: false
+        Postconditions: []
+        ExpectedResult: true
+      - TestDescription: MS.AAD.6.1v1 Compliant case - root domains with null PasswordValidityPeriodInDays (Post-Oct 2021 behavior)
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                domain_settings:
+                  - Id: root1.com
+                    PasswordValidityPeriodInDays: null
+                    IsVerified: true
+                    AuthenticationType: "Managed"
+                    IsRoot: true
+                  - Id: root2.com
+                    PasswordValidityPeriodInDays: null
+                    IsVerified: true
+                    AuthenticationType: "Managed"
+                    IsRoot: true
+                  - Id: sub.root1.com
+                    PasswordValidityPeriodInDays: null
+                    IsVerified: true
+                    AuthenticationType: "Managed"
+                    IsRoot: false
+                  - Id: sub.root2.com
+                    PasswordValidityPeriodInDays: null
+                    IsVerified: true
+                    AuthenticationType: "Managed"
+                    IsRoot: false
+                  - Id: unverified.domain.com
+                    PasswordValidityPeriodInDays: null
+                    IsVerified: false
+                    AuthenticationType: "Managed"
+                    IsRoot: false
+                  - Id: federated.domain.com
+                    PasswordValidityPeriodInDays: null
+                    IsVerified: false
+                    AuthenticationType: "Federated"
+                    IsRoot: false
+        Postconditions: []
+        ExpectedResult: true
+      - TestDescription: MS.AAD.6.1v1 Non-Compliant case - User passwords for some domains are set to expire
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                domain_settings:
+                  - Id: root1.com
+                    PasswordValidityPeriodInDays: 90
+                    IsVerified: true
+                    AuthenticationType: "Managed"
+                    IsRoot: true
+                  - Id: root2.com
+                    PasswordValidityPeriodInDays: 2147483647
+                    IsVerified: true
+                    AuthenticationType: "Managed"
+                    IsRoot: true
+                  - Id: sub.root1.com
+                    PasswordValidityPeriodInDays: null
+                    IsVerified: true
+                    AuthenticationType: "Managed"
+                    IsRoot: false
+                  - Id: sub.root2.com
+                    PasswordValidityPeriodInDays: null
+                    IsVerified: true
+                    AuthenticationType: "Managed"
+                    IsRoot: false
+                  - Id: unverified.domain.com
+                    PasswordValidityPeriodInDays: null
+                    IsVerified: false
+                    AuthenticationType: "Managed"
+                    IsRoot: false
+                  - Id: federated.domain.com
+                    PasswordValidityPeriodInDays: null
+                    IsVerified: false
+                    AuthenticationType: "Federated"
+                    IsRoot: false
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.6.1v1 Compliant case - Domains must be verified for password validity check to apply
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                domain_settings:
+                  - Id: root1.com
+                    PasswordValidityPeriodInDays: 2147483647
+                    IsVerified: false
+                    AuthenticationType: "Managed"
+                    IsRoot: true
+                  - Id: root2.com
+                    PasswordValidityPeriodInDays: 2147483647
+                    IsVerified: true
+                    AuthenticationType: "Managed"
+                    IsRoot: true
+                  - Id: sub.root1.com
+                    PasswordValidityPeriodInDays: null
+                    IsVerified: false
+                    AuthenticationType: "Managed"
+                    IsRoot: false
+                  - Id: sub.root2.com
+                    PasswordValidityPeriodInDays: null
+                    IsVerified: true
+                    AuthenticationType: "Managed"
+                    IsRoot: false
+                  - Id: unverified.domain.com
+                    PasswordValidityPeriodInDays: null
+                    IsVerified: false
+                    AuthenticationType: "Managed"
+                    IsRoot: false
+                  - Id: federated.domain.com
+                    PasswordValidityPeriodInDays: null
+                    IsVerified: false
+                    AuthenticationType: "Federated"
+                    IsRoot: false
+        Postconditions: []
+        ExpectedResult: true
+      - TestDescription: MS.AAD.6.1v1 Compliant case - Domains are valid and federated domains are excluded
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                domain_settings:
+                  - Id: root1.com
+                    PasswordValidityPeriodInDays: 2147483647
+                    IsVerified: true
+                    AuthenticationType: "Managed"
+                    IsRoot: true
+                  - Id: root2.com
+                    PasswordValidityPeriodInDays: 2147483647
+                    IsVerified: false
+                    AuthenticationType: "Managed"
+                    IsRoot: true
+                  - Id: sub.root1.com
+                    PasswordValidityPeriodInDays: null
+                    IsVerified: true
+                    AuthenticationType: "Managed"
+                    IsRoot: false
+                  - Id: sub.root2.com
+                    PasswordValidityPeriodInDays: null
+                    IsVerified: false
+                    AuthenticationType: "Managed"
+                    IsRoot: false
+                  - Id: unverified.domain.com
+                    PasswordValidityPeriodInDays: null
+                    IsVerified: false
+                    AuthenticationType: "Managed"
+                    IsRoot: false
+                  - Id: federated.domain.com
+                    PasswordValidityPeriodInDays: null
+                    IsVerified: true
+                    AuthenticationType: "Federated"
+                    IsRoot: false
+        Postconditions: []
+        ExpectedResult: true
+      - TestDescription: MS.AAD.6.1v1 Non-Compliant case - Domains are invalid and federated domains are excluded
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                domain_settings:
+                  - Id: test.url.com
+                    IsVerified: true
+                    AuthenticationType: "Federated"
+                  - Id: test1.url.com
+                    IsVerified: false
+                    AuthenticationType: "Federated"
+                  - Id: test2.url.com
+                    PasswordValidityPeriodInDays: 5
+                    IsVerified: true
+                    AuthenticationType: "Managed"
+                  - Id: test3.url.com
+                    PasswordValidityPeriodInDays: 5
+                    IsVerified: true
+                    AuthenticationType: "Managed"
+                  - Id: test4.url.com
+                    IsVerified: false
+                    AuthenticationType: "Federated"
+        Postconditions: []
+        ExpectedResult: false
+
+  - PolicyId: MS.AAD.7.1v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.AAD.7.1v1 Non-Compliant case - Too many Global Admins
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              Updates:
+                privileged_users:
+                  16b4d5c2-71c9-4644-8728-74e3a8324d81:
+                    DisplayName: Test User1
+                    roles:
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+                  26b4d5c2-71c9-4644-8728-74e3a8324d82:
+                    DisplayName: Test User2
+                    roles:
+                      - Global Administrator
+                      - Exchange Administrator
+                    OnPremisesImmutableId: null
+                  36b4d5c2-71c9-4644-8728-74e3a8324d83:
+                    DisplayName: Test User3
+                    roles:
+                      - User Administrator
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+                  46b4d5c2-71c9-4644-8728-74e3a8324d84:
+                    DisplayName: Test User4
+                    roles:
+                      - Hybrid Identity Administrator
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+                  56b4d5c2-71c9-4644-8728-74e3a8324d85:
+                    DisplayName: Test User5
+                    roles:
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+                  66b4d5c2-71c9-4644-8728-74e3a8324d86:
+                    DisplayName: Test User6
+                    roles:
+                      - Global Administrator
+                      - Sharepoint Administrator
+                    OnPremisesImmutableId: null
+                  76b4d5c2-71c9-4644-8728-74e3a8324d87:
+                    DisplayName: Test User7
+                    roles:
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+                  86b4d5c2-71c9-4644-8728-74e3a8324d88:
+                    DisplayName: Test User8
+                    roles:
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+                  96b4d5c2-71c9-4644-8728-74e3a8324d89:
+                    DisplayName: Test User9
+                    roles:
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.7.1v1 Non-Compliant case - Too few Global Admins
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              Updates:
+                privileged_users:
+                  16b4d5c2-71c9-4644-8728-74e3a8324d81:
+                    DisplayName: Test User1
+                    roles:
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.7.1v1 Compliant case - Max number of Global Admins
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              Updates:
+                privileged_users:
+                  16b4d5c2-71c9-4644-8728-74e3a8324d81:
+                    DisplayName: Test User1
+                    roles:
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+                  26b4d5c2-71c9-4644-8728-74e3a8324d82:
+                    DisplayName: Test User2
+                    roles:
+                      - Global Administrator
+                      - Exchange Administrator
+                    OnPremisesImmutableId: null
+                  36b4d5c2-71c9-4644-8728-74e3a8324d83:
+                    DisplayName: Test User3
+                    roles:
+                      - User Administrator
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+                  46b4d5c2-71c9-4644-8728-74e3a8324d84:
+                    DisplayName: Test User4
+                    roles:
+                      - Hybrid Identity Administrator
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+                  56b4d5c2-71c9-4644-8728-74e3a8324d85:
+                    DisplayName: Test User5
+                    roles:
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+                  66b4d5c2-71c9-4644-8728-74e3a8324d86:
+                    DisplayName: Test User6
+                    roles:
+                      - Global Administrator
+                      - Sharepoint Administrator
+                    OnPremisesImmutableId: null
+                  76b4d5c2-71c9-4644-8728-74e3a8324d87:
+                    DisplayName: Test User7
+                    roles:
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+                  86b4d5c2-71c9-4644-8728-74e3a8324d88:
+                    DisplayName: Test User8
+                    roles:
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.AAD.7.2v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.AAD.7.2v1 Non-Compliant case - Too many Global Admins
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              Updates:
+                privileged_users:
+                  16b4d5c2-71c9-4644-8728-74e3a8324d81:
+                    DisplayName: Test User1
+                    roles:
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+                  26b4d5c2-71c9-4644-8728-74e3a8324d82:
+                    DisplayName: Test User2
+                    roles:
+                      - Global Administrator
+                      - Exchange Administrator
+                    OnPremisesImmutableId: null
+                  36b4d5c2-71c9-4644-8728-74e3a8324d83:
+                    DisplayName: Test User3
+                    roles:
+                      - User Administrator
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+                  46b4d5c2-71c9-4644-8728-74e3a8324d84:
+                    DisplayName: Test User4
+                    roles:
+                      - Hybrid Identity Administrator
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+                  56b4d5c2-71c9-4644-8728-74e3a8324d85:
+                    DisplayName: Test User5
+                    roles:
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+                  66b4d5c2-71c9-4644-8728-74e3a8324d86:
+                    DisplayName: Test User6
+                    roles:
+                      - Global Administrator
+                      - Sharepoint Administrator
+                    OnPremisesImmutableId: null
+                  76b4d5c2-71c9-4644-8728-74e3a8324d87:
+                    DisplayName: Test User7
+                    roles:
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+                  86b4d5c2-71c9-4644-8728-74e3a8324d88:
+                    DisplayName: Test User8
+                    roles:
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+                  96b4d5c2-71c9-4644-8728-74e3a8324d89:
+                    DisplayName: Test User9
+                    roles:
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.7.2v1 Non-Compliant case - More Global Admins than other privileged roles
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              Updates:
+                privileged_users:
+                  16b4d5c2-71c9-4644-8728-74e3a8324d81:
+                    DisplayName: Test User1
+                    roles:
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+                  26b4d5c2-71c9-4644-8728-74e3a8324d82:
+                    DisplayName: Test User2
+                    roles:
+                      - Global Administrator
+                      - Exchange Administrator
+                    OnPremisesImmutableId: null
+                  36b4d5c2-71c9-4644-8728-74e3a8324d83:
+                    DisplayName: Test User3
+                    roles:
+                      - User Administrator
+                    OnPremisesImmutableId: null
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.7.2v1 Compliant case - Equal number of Global Admins and other privileged users
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              Updates:
+                privileged_users:
+                  16b4d5c2-71c9-4644-8728-74e3a8324d81:
+                    DisplayName: Test User1
+                    roles:
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+                  26b4d5c2-71c9-4644-8728-74e3a8324d82:
+                    DisplayName: Test User2
+                    roles:
+                      - Global Administrator
+                      - Exchange Administrator
+                    OnPremisesImmutableId: null
+                  36b4d5c2-71c9-4644-8728-74e3a8324d83:
+                    DisplayName: Test User3
+                    roles:
+                      - User Administrator
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+                  46b4d5c2-71c9-4644-8728-74e3a8324d84:
+                    DisplayName: Test User4
+                    roles:
+                      - Hybrid Identity Administrator
+                    OnPremisesImmutableId: null
+                  56b4d5c2-71c9-4644-8728-74e3a8324d85:
+                    DisplayName: Test User5
+                    roles:
+                      - User Administrator
+                    OnPremisesImmutableId: null
+                  66b4d5c2-71c9-4644-8728-74e3a8324d86:
+                    DisplayName: Test User6
+                    roles:
+                      - Sharepoint Administrator
+                    OnPremisesImmutableId: null
+        Postconditions: []
+        ExpectedResult: true
+
+      - TestDescription: MS.AAD.7.2v1 Compliant case - Less number of Global Admins than other privileged users
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              Updates:
+                privileged_users:
+                  16b4d5c2-71c9-4644-8728-74e3a8324d81:
+                    DisplayName: Test User1
+                    roles:
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+                  26b4d5c2-71c9-4644-8728-74e3a8324d82:
+                    DisplayName: Test User2
+                    roles:
+                      - Global Administrator
+                      - Exchange Administrator
+                    OnPremisesImmutableId: null
+                  36b4d5c2-71c9-4644-8728-74e3a8324d83:
+                    DisplayName: Test User3
+                    roles:
+                      - User Administrator
+                      - Exchange Administrator
+                    OnPremisesImmutableId: null
+                  46b4d5c2-71c9-4644-8728-74e3a8324d84:
+                    DisplayName: Test User4
+                    roles:
+                      - Hybrid Identity Administrator
+                    OnPremisesImmutableId: null
+                  56b4d5c2-71c9-4644-8728-74e3a8324d85:
+                    DisplayName: Test User5
+                    roles:
+                      - User Administrator
+                    OnPremisesImmutableId: null
+                  66b4d5c2-71c9-4644-8728-74e3a8324d86:
+                    DisplayName: Test User6
+                    roles:
+                      - Sharepoint Administrator
+                    OnPremisesImmutableId: null
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.AAD.7.3v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.AAD.7.3v1 Non-Compliant case - Three on-prem admins
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              Updates:
+                privileged_users:
+                  16b4d5c2-71c9-4644-8728-74e3a8324d81:
+                    DisplayName: Test User1
+                    roles:
+                      - Global Administrator
+                    OnPremisesImmutableId: admin1
+                  26b4d5c2-71c9-4644-8728-74e3a8324d82:
+                    DisplayName: Test User2
+                    roles:
+                      - Development Administrator
+                      - Exchange Administrator
+                    OnPremisesImmutableId: admin2
+                  36b4d5c2-71c9-4644-8728-74e3a8324d83:
+                    DisplayName: Test User3
+                    roles:
+                      - Billing Administrator
+                      - Hybrid Identity Administrator
+                    OnPremisesImmutableId: admin3
+                  46b4d5c2-71c9-4644-8728-74e3a8324d84:
+                    DisplayName: Test User4
+                    roles:
+                      - Hybrid Identity Administrator
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.7.3v1 Compliant case - No on-prem admins
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              Updates:
+                privileged_users:
+                  16b4d5c2-71c9-4644-8728-74e3a8324d81:
+                    DisplayName: Test User1
+                    roles:
+                      - Global Administrator
+                    OnPremisesImmutableId: null
+                  26b4d5c2-71c9-4644-8728-74e3a8324d82:
+                    DisplayName: Test User2
+                    roles:
+                      - Development Administrator
+                      - Exchange Administrator
+                    OnPremisesImmutableId: null
+                  36b4d5c2-71c9-4644-8728-74e3a8324d83:
+                    DisplayName: Test User3
+                    roles:
+                      - Billing Administrator
+                      - Hybrid Identity Administrator
+                    OnPremisesImmutableId: null
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.AAD.8.1v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.AAD.8.1v1 Non-Compliant - Guest users have the same access as members
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                authorization_policies[0].GuestUserRoleId: "a0b1b346-4d3e-4e8b-98f8-753987be4970"
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.8.1v1 Compliant - Guest user access is restricted
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                authorization_policies[0].GuestUserRoleId: "2af84b1e-32c8-42b7-82bc-daa82404023b"
+        Postconditions: []
+        ExpectedResult: true
+      - TestDescription: MS.AAD.8.1v1 Compliant - Guest users have limited access
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                authorization_policies[0].GuestUserRoleId: "10dae51f-b6af-4016-8d66-8c2a99b929b3"
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.AAD.8.2v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.AAD.8.2v1 Non-Compliant - Anyone in the organization can invite guest users
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                authorization_policies[0].AllowInvitesFrom: "everyone"
+        Postconditions: []
+        ExpectedResult: false
+      - TestDescription: MS.AAD.8.2v1 Compliant - Only users assigned to specific admin roles can invite guest users
+        Preconditions:
+          - Command: UpdateProviderExport
+            Splat:
+              updates:
+                authorization_policies[0].AllowInvitesFrom: "adminsAndGuestInviters"
+        Postconditions: []
+        ExpectedResult: true
+
+  - PolicyId: MS.AAD.8.3v1
+    TestDriver: ScubaCached
+    Tests:
+      - TestDescription: MS.AAD.8.3v1 Not Checked
+        Preconditions: []
+        Postconditions: []
+        IsNotChecked: true
+        ExpectedResult: false

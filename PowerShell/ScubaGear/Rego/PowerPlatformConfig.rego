@@ -1,0 +1,531 @@
+package powerplatform
+import rego.v1
+import data.utils.report.NotCheckedDetails
+import data.utils.report.ReportDetailsString
+import data.utils.report.ReportDetailsBoolean
+import data.utils.report.ReportDetailsArray
+import data.utils.key.FilterArray
+import data.utils.key.Count
+
+
+######################
+# MS.POWERPLATFORM.1 #
+######################
+
+#
+# MS.POWERPLATFORM.1.1v1
+#--
+
+# Pass if disableEnvironmentCreationByNonAdminUsers is true
+tests contains {
+    "PolicyId": "MS.POWERPLATFORM.1.1v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-PowerPlatformTenantSettingsRest"],
+    "ActualValue": EnvironmentCreation.disableEnvironmentCreationByNonAdminUsers,
+    "ReportDetails": ReportDetailsBoolean(Status),
+    "RequirementMet": Status
+} if {
+    some EnvironmentCreation in input.environment_creation
+    Status := EnvironmentCreation.disableEnvironmentCreationByNonAdminUsers == true
+}
+
+# Edge case where pulling configuration from tenant fails
+tests contains {
+    "PolicyId": "MS.POWERPLATFORM.1.1v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-PowerPlatformTenantSettingsRest"],
+    "ActualValue": "PowerShell Error",
+    "ReportDetails": "PowerShell Error",
+    "RequirementMet": false
+} if {
+    count(input.environment_creation) <= 0
+}
+#--
+
+#
+# MS.POWERPLATFORM.1.2v1
+#--
+# Pass if disableTrialEnvironmentCreationByNonAdminUsers is true
+tests contains {
+    "PolicyId": "MS.POWERPLATFORM.1.2v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-PowerPlatformTenantSettingsRest"],
+    "ActualValue": EnvironmentCreation.disableTrialEnvironmentCreationByNonAdminUsers,
+    "ReportDetails": ReportDetailsBoolean(Status),
+    "RequirementMet": Status
+} if {
+    some EnvironmentCreation in input.environment_creation
+    Status := EnvironmentCreation.disableTrialEnvironmentCreationByNonAdminUsers == true
+}
+
+# Edge case where pulling configuration from tenant fails
+tests contains {
+    "PolicyId": "MS.POWERPLATFORM.1.2v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-PowerPlatformTenantSettingsRest"],
+    "ActualValue": "PowerShell Error",
+    "ReportDetails": "PowerShell Error",
+    "RequirementMet": false
+} if {
+    count(input.environment_creation) <= 0
+}
+#--
+
+
+######################
+# MS.POWERPLATFORM.2 #
+######################
+
+# This variable is used for both "MS.POWERPLATFORM.2.1v1" and "MS.POWERPLATFORM.2.2v1"
+#
+# The environmentType field can be set to the following values:
+# "AllEnvironments", "ExceptEnvironments", or "OnlyEnvironments"
+PoliciesSetToAllEnvironments contains {
+    PolicyValue.name,
+    PolicyValue.displayName
+} if {
+    some Policy in input.dlp_policies
+    some PolicyValue in Policy.value
+    PolicyValue.environmentType == "AllEnvironments"
+}
+
+#
+# MS.POWERPLATFORM.2.1v1
+#--
+
+DefaultEnvName := concat("-", ["Default", input.tenant_id])
+
+# Iterate through all policies. For each, check if the environment the policy applies to
+# is the default environment. If so, save the policy name to the DefaultEnvPolicies list.
+DefaultEnvPolicies contains {
+    "DisplayName": PolicyValue.displayName,
+    "EnvironmentType": PolicyValue.environmentType
+} if {
+    some Policy in input.dlp_policies
+    some PolicyValue in Policy.value
+    some Env in PolicyValue.environments
+    Env.name == DefaultEnvName
+}
+
+# Check if a policy with ExceptEnvironments applies to default (default is not in the exception list)
+PoliciesApplyingToDefaultViaExcept contains {
+    "DisplayName": PolicyValue.displayName,
+    "EnvironmentType": PolicyValue.environmentType
+} if {
+    some Policy in input.dlp_policies
+    some PolicyValue in Policy.value
+    PolicyValue.environmentType == "ExceptEnvironments"
+
+    # Get all environment names in the exceptions list
+    ExceptedEnvNames := { Env.name | some Env in PolicyValue.environments }
+
+    # Check if default is NOT in the exceptions list (meaning policy applies to default)
+    not DefaultEnvName in ExceptedEnvNames
+}
+
+# Pass if at least one policy is set to all environments
+tests contains {
+    "PolicyId": "MS.POWERPLATFORM.2.1v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-PowerPlatformDlpPoliciesRest"],
+    "ActualValue": {
+        "PoliciesSetToAllEnvironments": PoliciesSetToAllEnvironments
+    },
+    "ReportDetails": ReportDetailsBoolean(PolicySetToAllEnvExists),
+    "RequirementMet": PolicySetToAllEnvExists
+} if {
+    some DLPPolicies in input.dlp_policies
+    Count(DLPPolicies.value) > 0
+    PolicySetToAllEnvExists
+}
+
+# Note: there is only one default environment per tenant and it cannot be deleted or backed up
+# Pass if at least one policy applies to the default environment
+tests contains {
+    "PolicyId": "MS.POWERPLATFORM.2.1v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-PowerPlatformDlpPoliciesRest"],
+    "ActualValue": {
+        "DefaultEnvPolicies": DefaultEnvPolicies,
+        "PoliciesApplyingToDefaultViaExcept": PoliciesApplyingToDefaultViaExcept
+    },
+    "ReportDetails": ReportDetailsString(Status, ErrorMessage),
+    "RequirementMet": Status
+} if {
+    ErrorMessage := "No policy found that applies to default environment"
+    Count(PoliciesSetToAllEnvironments) == 0
+
+    # Check if default environment has policies applied either directly or via ExceptEnvironments
+    # If a default policy is excluded, it will still show up under the "environments" key.
+    DirectPolicies := Count({e | some e in DefaultEnvPolicies; e.EnvironmentType != "ExceptEnvironments"})
+    ExceptPolicies := Count(PoliciesApplyingToDefaultViaExcept)
+
+    Status := (DirectPolicies + ExceptPolicies) > 0
+}
+#--
+
+#
+# MS.POWERPLATFORM.2.2v1
+#--
+
+# Gets the list of all tenant environments
+AllEnvironments contains {
+    "EnvironmentName": EnvironmentList.EnvironmentName,
+    "IsDefault": EnvironmentList.IsDefault
+} if {
+    some EnvironmentList in input.environment_list
+}
+
+# Gets environments explicitly included in policies (OnlyEnvironments/AllEnvironments)
+ExplicitlyIncludedEnvs contains {
+    "name": Env.name,
+    "environmentType": PolicyValue.environmentType
+} if {
+    some Policy in input.dlp_policies
+    some PolicyValue in Policy.value
+    PolicyValue.environmentType != "ExceptEnvironments"
+    some Env in PolicyValue.environments
+}
+
+# Gets non-default environments covered by ExceptEnvironments policies
+EnvsCoveredViaExcept contains EnvName if {
+    some Policy in input.dlp_policies
+    some PolicyValue in Policy.value
+    PolicyValue.environmentType == "ExceptEnvironments"
+
+    # Get all environment names in the exceptions list
+    ExceptedEnvNames := { Env.name | some Env in PolicyValue.environments }
+
+    # Environments covered are those NOT in the exceptions list
+    CoveredEnvs := AllNonDefaultEnvNames - ExceptedEnvNames
+    some EnvName in CoveredEnvs
+}
+
+# Combined set of all non-default environments with policies
+NonDefaultEnvWithPolicies contains {
+    "name": Env.name,
+    "environmentType": Env.environmentType
+} if {
+    some Env in ExplicitlyIncludedEnvs
+}
+
+NonDefaultEnvWithPolicies contains {
+    "name": EnvName,
+    "environmentType": "ExceptEnvironments"
+} if {
+    some EnvName in EnvsCoveredViaExcept
+}
+
+AllNonDefaultEnvNames contains e.EnvironmentName if {
+    some e in AllEnvironments
+    e.IsDefault == false
+}
+
+NonDefaultEnvWithPoliciesNames contains e.name if {
+    some e in NonDefaultEnvWithPolicies
+}
+
+EnvWithoutPolicies := AllNonDefaultEnvNames - NonDefaultEnvWithPoliciesNames
+
+PolicySetToAllEnvExists if Count(PoliciesSetToAllEnvironments) >= 1
+
+HasNonDefaultEnvironments if some _ in AllNonDefaultEnvNames
+
+default AllEnvsHavePolicies := false
+
+AllEnvsHavePolicies if EnvWithoutPolicies == set()
+
+RogueConnectors := ConnectorSet - AllowedInBaseline
+
+default AllConnectorsAllowed := false
+
+AllConnectorsAllowed if RogueConnectors == set()
+
+# Pass if at least one policy is set to all environments
+tests contains {
+    "PolicyId": "MS.POWERPLATFORM.2.2v1",
+    "Criticality": "Should",
+    "Commandlet": ["Get-PowerPlatformDlpPoliciesRest"],
+    "ActualValue": PoliciesSetToAllEnvironments,
+    "ReportDetails": ReportDetailsBoolean(PolicySetToAllEnvExists),
+    "RequirementMet": PolicySetToAllEnvExists
+} if {
+    some DLPPolicies in input.dlp_policies
+    Count(DLPPolicies.value) > 0
+    PolicySetToAllEnvExists
+}
+
+# Pass if all environments have a policy applied to them
+tests contains {
+    "PolicyId": "MS.POWERPLATFORM.2.2v1",
+    "Criticality": "Should",
+    "Commandlet": ["Get-PowerPlatformDlpPoliciesRest"],
+    "ActualValue": {
+        "AllEnvironments": AllEnvironments,
+        "NonDefaultEnvWithPolicies": NonDefaultEnvWithPolicies,
+        "EnvWithoutPolicies": EnvWithoutPolicies
+    },
+    "ReportDetails": ReportDetailsArray(AllEnvsHavePolicies, EnvWithoutPolicies, "subsequent environments without DLP policies:"),
+    "RequirementMet": AllEnvsHavePolicies
+} if {
+    some DLPPolicies in input.dlp_policies
+    Count(DLPPolicies.value) > 0
+    not PolicySetToAllEnvExists
+}
+
+# Edge case where no non-default environments and no DLP policies are found
+tests contains {
+    "PolicyId": "MS.POWERPLATFORM.2.2v1",
+    "Criticality": "Should",
+    "Commandlet": ["Get-PowerPlatformDlpPoliciesRest"],
+    "ActualValue": "No non-default environments and no DLP policies found",
+    "ReportDetails": "No non-default environments and no DLP policies found",
+    "RequirementMet": true
+} if {
+    some DLPPolicies in input.dlp_policies
+    Count(DLPPolicies.value) <= 0
+    not HasNonDefaultEnvironments
+}
+
+# Edge case where non-default environments exist but no DLP policies are found
+tests contains {
+    "PolicyId": "MS.POWERPLATFORM.2.2v1",
+    "Criticality": "Should",
+    "Commandlet": ["Get-PowerPlatformDlpPoliciesRest"],
+    "ActualValue": "No DLP policies found",
+    "ReportDetails": "No DLP policies found",
+    "RequirementMet": false
+} if {
+    some DLPPolicies in input.dlp_policies
+    Count(DLPPolicies.value) <= 0
+    HasNonDefaultEnvironments
+}
+
+# Edge case where pulling configuration from tenant fails
+tests contains {
+    "PolicyId": "MS.POWERPLATFORM.2.2v1",
+    "Criticality": "Should",
+    "Commandlet": ["Get-PowerPlatformDlpPoliciesRest"],
+    "ActualValue": "PowerShell Error",
+    "ReportDetails": "PowerShell Error",
+    "RequirementMet": false
+} if {
+    Count(input.dlp_policies) <= 0
+}
+#--
+
+#
+# MS.POWERPLATFORM.2.3v1
+#--
+
+# gets the set of connectors that are allowed in the default environment
+# general and confidential groups refer to business and non-business
+ConnectorSet contains Connector.id if {
+    some DlpPolicy in input.dlp_policies
+    some Policies in DlpPolicy.value
+    some Group in Policies.connectorGroups
+    Conditions := [
+        Group.classification == "General",
+        Group.classification == "Confidential"
+    ]
+    count(FilterArray(Conditions, true)) > 0
+    some Connector in Group.connectors
+
+    # Filter: only include policies that meet all the requirements
+    some Env in Policies.environments
+    Env.name == DefaultEnvName
+}
+
+# set of all connectors that cannot be blocked
+AllowedInBaseline := {
+    "/providers/Microsoft.PowerApps/apis/shared_powervirtualagents",
+    "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+    "/providers/Microsoft.PowerApps/apis/shared_onedriveforbusiness",
+    "/providers/Microsoft.PowerApps/apis/shared_approvals",
+    "/providers/Microsoft.PowerApps/apis/shared_cloudappsecurity",
+    "/providers/Microsoft.PowerApps/apis/shared_commondataservice",
+    "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
+    "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+    "/providers/Microsoft.PowerApps/apis/shared_flowpush",
+    "/providers/Microsoft.PowerApps/apis/shared_kaizala",
+    "/providers/Microsoft.PowerApps/apis/shared_microsoftformspro",
+    "/providers/Microsoft.PowerApps/apis/shared_office365",
+    "/providers/Microsoft.PowerApps/apis/shared_office365groups",
+    "/providers/Microsoft.PowerApps/apis/shared_office365groupsmail",
+    "/providers/Microsoft.PowerApps/apis/shared_office365users",
+    "/providers/Microsoft.PowerApps/apis/shared_onenote",
+    "/providers/Microsoft.PowerApps/apis/shared_planner",
+    "/providers/Microsoft.PowerApps/apis/shared_powerappsnotification",
+    "/providers/Microsoft.PowerApps/apis/shared_powerappsnotificationv2",
+    "/providers/Microsoft.PowerApps/apis/shared_powerbi",
+    "/providers/Microsoft.PowerApps/apis/shared_shifts",
+    "/providers/Microsoft.PowerApps/apis/shared_skypeforbiz",
+    "/providers/Microsoft.PowerApps/apis/shared_teams",
+    "/providers/Microsoft.PowerApps/apis/shared_todo",
+    "/providers/Microsoft.PowerApps/apis/shared_yammer"
+}
+
+# Pass if all connectors besides the ones allowed are blocked
+tests contains {
+    "PolicyId": "MS.POWERPLATFORM.2.3v1",
+    "Criticality": "Should",
+    "Commandlet": ["Get-PowerPlatformDlpPoliciesRest"],
+    "ActualValue": RogueConnectors,
+    "ReportDetails": ReportDetailsArray(AllConnectorsAllowed, RogueConnectors, "Connectors are allowed that should be blocked:"),
+    "RequirementMet": AllConnectorsAllowed
+} if {
+    some DLPPolicies in input.dlp_policies
+    count(DLPPolicies.value) > 0
+}
+
+# Edge case where no policies are found
+tests contains {
+    "PolicyId": "MS.POWERPLATFORM.2.3v1",
+    "Criticality": "Should",
+    "Commandlet": ["Get-PowerPlatformDlpPoliciesRest"],
+    "ActualValue": "No DLP Policies found",
+    "ReportDetails": "No DLP Policies found",
+    "RequirementMet": false
+} if {
+    some DLPPolicies in input.dlp_policies
+    count(DLPPolicies.value) <= 0
+}
+
+# Edge case where pulling configuration from tenant fails
+tests contains {
+    "PolicyId": "MS.POWERPLATFORM.2.3v1",
+    "Criticality": "Should",
+    "Commandlet": ["Get-PowerPlatformDlpPoliciesRest"],
+    "ActualValue": "PowerShell Error",
+    "ReportDetails": "PowerShell Error",
+    "RequirementMet": false
+} if {
+    count(input.dlp_policies) <= 0
+}
+#--
+
+
+######################
+# MS.POWERPLATFORM.3 #
+######################
+
+
+#
+# MS.POWERPLATFORM.3.1v1
+#--
+
+# Pass if isDisabled is false
+tests contains {
+    "PolicyId": "MS.POWERPLATFORM.3.1v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-PowerPlatformTenantIsolationRest"],
+    "ActualValue": TenantIsolation.properties.isDisabled,
+    "ReportDetails": ReportDetailsBoolean(Status),
+    "RequirementMet": Status
+} if {
+    some TenantIsolation in input.tenant_isolation
+    Status := TenantIsolation.properties.isDisabled == false
+}
+
+# Edge case where pulling configuration from tenant fails
+tests contains {
+    "PolicyId": "MS.POWERPLATFORM.3.1v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-PowerPlatformTenantIsolationRest"],
+    "ActualValue": "PowerShell Error",
+    "ReportDetails": "PowerShell Error",
+    "RequirementMet": false
+} if {
+    count(input.tenant_isolation) <= 0
+}
+
+# When tenant isolation has never been configured (returns null)
+tests contains {
+    "PolicyId": "MS.POWERPLATFORM.3.1v1",
+    "Criticality": "Shall",
+    "Commandlet": ["Get-PowerPlatformTenantIsolationRest"],
+    "ActualValue": "null",
+    "ReportDetails": "Tenant isolation policy has never been configured in this tenant",
+    "RequirementMet": false
+} if {
+    some TenantIsolation in input.tenant_isolation
+    TenantIsolation == "null"
+}
+
+#--
+
+#
+# MS.POWERPLATFORM.3.2v1
+#--
+
+# At this time we are unable to test for X because of Y
+tests contains {
+    "PolicyId": "MS.POWERPLATFORM.3.2v1",
+    "Criticality": "Should/Not-Implemented",
+    "Commandlet": [],
+    "ActualValue": [],
+    "ReportDetails": NotCheckedDetails("MS.POWERPLATFORM.3.2v1"),
+    "RequirementMet": false
+}
+#--
+
+
+######################
+# MS.POWERPLATFORM.4 #
+######################
+
+#
+# MS.POWERPLATFORM.4.1v1
+#--
+
+# At this time we are unable to test for X because of Y
+tests contains {
+    "PolicyId": "MS.POWERPLATFORM.4.1v1",
+    "Criticality": "Shall/Not-Implemented",
+    "Commandlet": [],
+    "ActualValue": [],
+    "ReportDetails": NotCheckedDetails("MS.POWERPLATFORM.4.1v1"),
+    "RequirementMet": false
+}
+#--
+
+
+######################
+# MS.POWERPLATFORM.5 #
+######################
+
+#
+# MS.POWERPLATFORM.5.1v1
+#--
+
+# Pass if disablePortalsCreationByNonAdminUsers is true
+tests contains {
+    "PolicyId": "MS.POWERPLATFORM.5.1v1",
+    "Criticality": "Should",
+    "Commandlet": ["Get-PowerPlatformTenantSettingsRest"],
+    "ActualValue": EnvironmentCreation.disablePortalsCreationByNonAdminUsers,
+    "ReportDetails": ReportDetailsBoolean(Status),
+    "RequirementMet": Status
+} if {
+    some EnvironmentCreation in input.environment_creation
+    Status := EnvironmentCreation.disablePortalsCreationByNonAdminUsers == true
+}
+#--
+
+######################
+# MS.POWERPLATFORM.6 #
+######################
+
+# Pass if disableShareWithEveryone is true
+tests contains {
+    "PolicyId": "MS.POWERPLATFORM.6.1v1",
+    "Criticality": "Should",
+    "Commandlet": ["Get-PowerPlatformTenantSettingsRest"],
+    "ActualValue": EnvironmentCreation.powerPlatform.powerApps.disableShareWithEveryone,
+    "ReportDetails": ReportDetailsBoolean(Status),
+    "RequirementMet": Status
+} if {
+    some EnvironmentCreation in input.environment_creation
+    Status := EnvironmentCreation.powerPlatform.powerApps.disableShareWithEveryone == true
+}
+#--

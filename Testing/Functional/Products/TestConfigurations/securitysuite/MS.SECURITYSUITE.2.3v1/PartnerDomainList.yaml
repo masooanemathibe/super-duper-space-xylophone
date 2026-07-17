@@ -1,0 +1,8 @@
+Description: Test Config for MS.SECURITYSUITE.2.3v1
+ProductNames:
+  - securitysuite
+LogIn: false
+SecuritySuite:
+  MS.SECURITYSUITE.2.3v1:
+    PartnerDomains:
+      - not-in-tenant.example.com

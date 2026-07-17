@@ -1,0 +1,47 @@
+# Interactive Permissions
+
+ScubaGear requires certain certain user permissions, and depending upon the M365 products tested, it may require certain application permissions as well.
+
+## User Permissions
+
+ScubaGear queries various M365 APIs to gather information about their security settings. To allow this, ScubaGear can authenticate with a user account that has the following minimum user roles for each M365 product.
+
+| Product                 | Role                                                                    |
+| ----------------------- | ----------------------------------------------------------------------- |
+| Entra ID                | Global Reader                                                           |
+| Security Suite          | Global Reader (or Exchange Administrator)                               |
+| Exchange Online         | Global Reader (or Exchange Administrator)                               |
+| Power BI                | Fabric Administrator (or Global Administrator) with a Power BI or Fabric license <sup>1</sup> |
+| Power Platform          | Power Platform Administrator with a "Power Apps for Office 365" license |
+| Sharepoint Online       | Global Reader (or SharePoint Administrator)                             |
+| Microsoft Teams         | Global Reader (or Teams Administrator)                                  |
+
+> [!NOTE]
+> Users with the Global Administrator role always have the necessary user permissions to run the tool.
+
+> [!NOTE]
+> <sup>1</sup> When running Power BI, the user running ScubaGear interactively must have a Power BI or Microsoft Fabric license assigned to their account (e.g., Microsoft Fabric (Free), Power BI Pro, or Power BI Premium Per User). The user must also login to the Power BI portal at least once to setup their account in Power BI before running ScubaGear.
+
+
+## Application Permissions
+
+Testing the configurations of Entra ID and Sharepoint require the use of [Microsoft Graph PowerShell SDK](https://learn.microsoft.com/en-us/powershell/microsoftgraph/get-started?view=graph-powershell-1.0). If you are not testing these products, you can ignore this section.
+
+To enable ScubaGear to run successfully, you must allow Graph to have a set of API permissions to run on your behalf. ScubaGear will attempt to configure the required API permissions needed by the Microsoft Graph PowerShell module, if they have not already been configured in the target tenant. Depending on the Entra ID roles assigned to the user running ScubaGear and how the application consent settings are configured in the target tenant, the process may vary slightly.
+
+This workflow-like process is sometimes referred to as the _application consent process_, as an Administrator must _consent_ for the Microsoft Graph PowerShell application to access the tenant and the necessary Graph APIs to extract the configuration data.  To understand the application consent process, read [this article](https://learn.microsoft.com/en-us/azure/active-directory/develop/application-consent-experience) from Microsoft.
+
+The following API permissions are required for Microsoft Graph Powershell:
+
+- Directory.Read.All
+- Policy.Read.All
+- PrivilegedAccess.Read.AzureADGroup
+- PrivilegedEligibilitySchedule.Read.AzureADGroup
+- RoleManagement.Read.Directory
+- RoleManagementPolicy.Read.AzureADGroup
+- User.Read.All
+
+> [!NOTE]
+> Microsoft Graph PowerShell SDK [now appears as "verified"](https://devblogs.microsoft.com/microsoft365dev/microsoft-graph-powershell-and-cli-are-now-verified/) on the AAD application consent screen.
+
+Once the user and application permissions have been set, ScubaGear can be [executed](../execution/execution.md) in interactive mode.

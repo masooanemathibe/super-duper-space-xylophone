@@ -1,0 +1,46 @@
+# Purpose: Run smoke tests
+
+name: Smoke Test
+
+on:
+    workflow_call:
+    workflow_dispatch:
+    pull_request:
+        types: [opened, reopened]
+        branches:
+            - "main"
+    pull_request_review:
+        types: [submitted]
+    push:
+        paths:
+            - ".github/workflows/run_smoke_test.yaml"
+            - "utils/workflow/Invoke-SmokeTests.ps1"
+        branches:
+            - "main"
+            - "*smoke*"
+
+permissions: read-all
+
+jobs:
+    smoke-tests:
+        name: Smoke Tests
+        runs-on: windows-latest
+        env:
+            SCUBA_GITHUB_AUTOMATION_CREDS: ${{ secrets.SCUBA_GITHUB_AUTOMATION_CREDS }}
+        # This condition prevents duplicate runs.
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+        defaults:
+            run:
+                shell: powershell
+        permissions:
+            contents: read
+        steps:
+            - name: Checkout repo code
+              uses: actions/checkout@v7
+            - name: Execute tests
+              run: |
+                $AutomationCredentials = $env:SCUBA_GITHUB_AUTOMATION_CREDS | ConvertFrom-Json
+                $TestTenants = $AutomationCredentials.TestTenants
+                . utils/workflow/Invoke-SmokeTests.ps1
+                $FailedTestCount = Invoke-SmokeTests -TestTenants $TestTenants
+                exit $FailedTestCount

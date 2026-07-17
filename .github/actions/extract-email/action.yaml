@@ -1,0 +1,15 @@
+name: Extract Email
+description: Extract the emails to notify on failure
+outputs:
+  emails:
+    value: ${{ steps.emails-output.outputs.emails }}
+runs:
+  using: "composite"
+  steps:
+    - run: |
+        . utils/action/Get-Email.ps1
+        $Email = Get-Email -ProductAlias $env:Alias -Params $env:TestParams
+        # Pass email(s) to later job for notification.
+        echo emails=$Email >> $env:GITHUB_OUTPUT
+      id: emails-output
+      shell: powershell

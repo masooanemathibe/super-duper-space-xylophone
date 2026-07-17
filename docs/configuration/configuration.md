@@ -1,0 +1,350 @@
+# ScubaGear Configuration File
+
+ScubaGear allows users to specify most of the `Invoke-SCuBA` cmdlet [parameters](parameters.md) in a configuration file. The path of the file is specified by the `-ConfigFilePath` parameter, and its contents can be formatted as YAML or JSON. Important details about executing ScubaGear with a configuration file are listed below.
+
+- Executing ScubaGear with a modified configuration file is required to pass or omit specific ScubaGear policy checks. See [SCuBA Compliance Configuration](#scuba-compliance-configuration) and the associated sample configuration file for details.
+
+- The configuration file allows users to add additional fields to embed within the ScubaGear output JSON for supplemental metadata purposes.
+
+- The configuration files use the Pascal case convention for variables, and their names are consistent with the parameters.
+
+> [!IMPORTANT]
+> When a parameter is specified on both the command line and the configuration file, the parameter value provided on the command line has precedence and the configuration file value will be disregarded.
+
+> [!TIP]
+> It is highly recommended to use the **[Configuration UI](scubaconfigapp.md)** to create and manage ScubaGear configuration files. The UI provides an interactive experience that reduces the risk of errors and makes it easy to configure exclusions, annotations, and omissions without manually editing YAML.
+
+## Sample Configuration Files
+
+[Sample config files](../../PowerShell/ScubaGear/Sample-Config-Files) are available in the repo. Several of these sample config files are explained in more detail in the sections below.
+
+### SCuBA Compliance Configuration
+
+The [SCuBA compliance](../../PowerShell/ScubaGear/Sample-Config-Files/scuba_compliance.yaml) example config file is the **recommended starting point** for organizations seeking to meet SCuBA compliance checks. This configuration file contains:
+
+- Essential parameters for SCuBA baseline compliance
+- Fields for adding conditional access policy exceptions
+- Fields for omitting ScubaGear policy checks with proper rationale
+- Additional organizational documentation fields
+- Examples of exclusions, annotations, and omissions
+
+Users are highly encouraged to read all the configuration file documentation sections to understand what each field is for and to modify those fields to successfully pass ScubaGear's SCuBA baseline compliance checks.
+
+This configuration file includes the additional `OrgName` and `OrgUnitName` fields for documenting the organization and organizational subunit owner of the M365 tenant ScubaGear is running against.
+
+```yaml
+OrgName: Department of Example
+OrgUnitName: Subdepartment of Example
+```
+
+ScubaGear can be invoked with this config file:
+
+```powershell
+# Invoke with SCuBA compliance config
+Invoke-SCuBA -ConfigFilePath scuba_compliance.yaml
+```
+
+### Full Configuration Reference
+
+The [full config file](../../PowerShell/ScubaGear/Sample-Config-Files/full_config.yaml) shows **all available parameters** supported by ScubaGear specified in the config file. This serves as a complete reference for all possible configuration options. Any parameter may be commented out - if not specified or commented out, ScubaGear will supply the default value unless overridden on the command line.
+
+**Note**: Default values do not apply to authentication parameters (Organization, AppID, CertificateThumbprint).
+
+```powershell
+# Invoke with full configuration reference
+Invoke-SCuBA -ConfigFilePath full_config.yaml
+```
+
+### Alternative Configuration Approaches
+
+While the SCuBA compliance and full configuration files above are recommended, you can also create simpler configurations:
+
+**Basic Configuration**: Specify only essential parameters (ProductNames and M365Environment):
+```yaml
+ProductNames: ['aad', 'securitysuite', 'exo']
+M365Environment: commercial
+```
+
+### Non-Interactive Authentication
+
+For automated or unattended execution, you can configure ScubaGear to use service principal authentication by adding the **Organization**, **App ID**, and **Certificate Thumbprint** parameters to your configuration file. This method is ideal for scheduled assessments or CI/CD pipelines.
+
+**Important**: The certificate's private key must be available in the certificate store, and config files with sensitive authentication data should be protected appropriately.
+
+Example configuration with service principal authentication:
+
+```yaml
+Organization: "example.onmicrosoft.com"
+AppID: "abcdef01-2345-6789-abcd-e0123456789a"  # Application (client) ID
+CertificateThumbprint: "FEDCBA9876543210FEDCBA9876543210FEDCBA98"  # 40-character hex string
+ProductNames: ['aad', 'securitysuite', 'exo']
+M365Environment: commercial
+```
+
+You can also override authentication parameters at runtime:
+
+```powershell
+# Override authentication parameters on command line
+Invoke-SCuBA `
+  -ConfigFilePath "<path>\full_config.yaml" `
+  -Organization example.onmicrosoft.com `
+  -AppID abcdef0123456789abcde01234566789 `
+  -CertificateThumbprint fedcba9876543210fedcba9876543210fedcba98
+```
+
+For more details on setting up service principal authentication, see the [Non-Interactive Permissions](../prerequisites/noninteractive.md) documentation.
+
+## Generate Configuration Files
+
+ScubaGear provides two methods for creating configuration files: a command-line utility and a graphical user interface.
+
+### Method 1: Configuration UI (Recommended)
+
+The **Configuration UI** provides an intuitive graphical interface for creating and managing ScubaGear configuration files:
+
+```powershell
+# Launch the Configuration UI
+Start-SCuBAConfigApp
+```
+
+This is the **recommended method** for users who prefer visual interfaces or are new to ScubaGear configuration.
+
+For complete documentation on using the Configuration UI, see the [Configuration UI Guide](scubaconfigapp.md).
+
+### Method 2: Command-Line Generation
+
+You can also generate an empty sample configuration file using the command line. The `New-SCuBAConfig` cmdlet will create a template configuration file called `SampleConfig.yaml`:
+
+```powershell
+# Create an empty config file
+New-SCuBAConfig
+```
+
+Parameters can be passed to the `New-SCuBAConfig` cmdlet to pre-populate values in the sample configuration:
+
+```powershell
+# Create config with pre-set values
+New-SCuBAConfig -Organization "example.onmicrosoft.com" -ProductNames "aad,securitysuite"
+```
+
+The generated file can then be manually edited to add your specific configuration settings.
+
+## Annotate Policies
+
+ScubaGear supports annotating results for individual policies. Annotated policies will be shown in the HTML with the
+annotation appended to the details column. Annotated policies are intended to:
+- Document action plans for any failed controls. ScubaGear will output a warning for any failing controls that are not
+documented in the config file, though this warning can be silenced with the `-SilenceBODWarnings` flag.
+- Help contextualize results
+- Allow users to identify incorrect results
+
+The `AnnotatePolicy` top-level key allows the user to specify the policies that should be annotated.
+
+Example policy annotations configuration:
+
+```yaml
+AnnotatePolicy:
+  MS.AAD.2.1v1:
+    IncorrectResult: false
+    Comment: "Remediation scheduled for Q2 2024"
+    RemediationDate: 2025-06-30
+  MS.EXO.3.1v1:
+    IncorrectResult: true
+    Comment: "False positive - DMARC is properly configured via third-party service"
+```
+
+For each annotated policy, the config file allows you to indicate the following:
+- `Comment`: **Required for failed controls.** The annotation message to add to the report. A warning will be printed if the control is marked incorrect with no comment provided as justification.
+- `RemediationDate`: **Optional.** The date a failing control is anticipated to be implemented. The expected format is yyyy-mm-dd.
+- `IncorrectResult`: **Optional.** Acceptable values: true or false. Whether or not to mark the result incorrect. Defaults to false.
+
+**Exercise care when marking incorrect results because this can inadvertently introduce blind spots when assessing your system.**
+
+## Omit Policies
+
+In some cases, it may be appropriate to omit specific policies from ScubaGear evaluation. For example:
+- When a policy is implemented by a third-party service that ScubaGear does not audit
+- When a policy is not applicable to your organization (e.g., policy MS.EXO.4.3v1 is only applicable to federal, executive branch, departments and agencies)
+
+The `OmitPolicy` top-level key allows the user to specify the policies that should be omitted from the ScubaGear report. Omitted policies will show up as "Omitted" in the HTML report and will be colored gray. Omitting policies must only be done if the omissions are approved within an organization's security risk management process. **Exercise care when omitting policies because this can inadvertently introduce blind spots when assessing your system.**
+
+Example policy omissions configuration:
+
+```yaml
+OmitPolicy:
+  MS.EXO.4.3v1:
+    Rationale: "Policy only applies to federal executive branch agencies"
+    Expiration: 2025-12-31
+  MS.AAD.1.2v1:
+    Rationale: "Third-party MFA solution in use, not Azure MFA"
+```
+
+For each omitted policy, the config file allows you to indicate the following:
+- `Rationale`: The reason the policy should be omitted from the report. This value will be displayed in the "Details" column of the report. ScubaGear will output a warning if no rationale is provided.
+- `Expiration`: Optional. A date after which the policy should no longer be omitted from the report. The expected format is yyyy-mm-dd.
+
+## Product-specific Configuration
+
+Config files can include a top-level level key for a given product whose values are related to that specific product. For example, the `SecuritySuite` key contains configuration options specific to the Security Suite baseline. Currently, only Entra ID, Security Suite, and Exchange Online use this extra configuration.
+
+Under a product key, there can be policy keys that provide configuration values unique to the product. In the Security Suite configuration, for example, there is the `MS.SECURITYSUITE.2.1v1` key.
+
+### Entra ID Configuration
+
+The ScubaGear configuration file provides the capability to exclude specific users, groups, applications, or guest user types from some of the Entra ID policy checks. For example, a user could exclude emergency access accounts from some of the policy checks. Exclusions must only be used if they are approved within an organization's security risk acceptance process. **Exclusions can introduce grave risks to your system and must be managed carefully**.
+
+Example Entra ID configuration:
+
+```yaml
+Aad:
+  MS.AAD.1.1v1:
+    CapExclusions:
+      Users:
+        - "12345678-1234-1234-1234-123456789012"  # Emergency access account 1
+        - "87654321-4321-4321-4321-210987654321"  # Emergency access account 2
+      Groups:
+        - "11111111-1111-1111-1111-111111111111"  # Break glass admin group
+      Applications:
+        - "49b4dcdf-1f90-41a7c3-9b42-5cfe9dd7e3b4"  # Example Cloud App 1
+      GuestUserTypes:
+        - b2bCollaborationGuest
+        - b2bCollaborationMember
+  MS.AAD.2.1v1:
+    CapExclusions:
+      Users:
+        - "12345678-1234-1234-1234-123456789012"  # Emergency access account 1
+        - "87654321-4321-4321-4321-210987654321"  # Emergency access account 2
+      Groups:
+        - "11111111-1111-1111-1111-111111111111"  # Break glass admin group
+      Applications:
+        - "49b4dcdf-1f90-41a7c3-9b42-5cfe9dd7e3b4"  # Example Application 1
+        -  Office365 # Example Application 2
+      GuestUserTypes:
+        - internalGuest
+        - b2bCollaborationGuest
+        - b2bCollaborationMember
+        - b2bDirectConnectUser
+        - otherExternalUser
+        - serviceProvider
+  MS.AAD.7.4v1:
+    RoleExclusions:
+      Users:
+        - "12345678-1234-1234-1234-123456789012"  # Emergency access account
+      Groups:
+        - "22222222-2222-2222-2222-222222222222"  # Service account group
+```
+
+#### Conditional Access Policy Exclusions
+
+The `Aad` top level key allows the user to specify configurations specific to the Entra Id baseline. Under the `Aad` key is the policy identifier such as `MS.AAD.1.1v1` and under that is the `CapExclusions` key where exclusions are defined. `CapExclusions` supports four fields:
+
+- **`Applications`**: A list of Applications to exclude. The value to use depends on how the application appears in the Entra portal under the CAP's **Exclude > Select specific resources** section:
+
+  - **Display name only** (no GUID shown beneath the name, e.g., *Microsoft Admin Portals*, *Office 365*): Remove all spaces from the display name.
+    ```yaml
+    Applications:
+      - "MicrosoftAdminPortals"
+      - "Office365"
+    ```
+
+  - **Display name with a GUID beneath it** (e.g., *Azure Cosmos DB* with `a232010e-820c-4083-83bb-3ace5fc29d0b`): Use the GUID.
+    ```yaml
+    Applications:
+      - "a232010e-820c-4083-83bb-3ace5fc29d0b"
+    ```
+
+  > **Note:** `Applications` is not supported for `MS.AAD.3.8v1`.
+- **`Groups`**: A list of group Object IDs (GUIDs) to exclude from the policy check.
+- **`GuestUserTypes`**: A list of guest/external user types to exclude. Valid values are:
+  - `b2bCollaborationGuest`
+  - `b2bCollaborationMember`
+  - `b2bDirectConnectUser`
+  - `internalGuest`
+  - `otherExternalUser`
+  - `serviceProvider`
+- **`Users`**: A list of user Object IDs (GUIDs) to exclude from the policy check.
+
+CapExclusions are supported for the following policies:
+
+- MS.AAD.1.1v1
+- MS.AAD.2.1v1
+- MS.AAD.2.3v1
+- MS.AAD.3.1v1
+- MS.AAD.3.2v2
+- MS.AAD.3.6v1
+- MS.AAD.3.7v1
+- MS.AAD.3.8v1
+- MS.AAD.3.9v1
+
+#### Privileged User Policy Exclusions
+
+In addition to defining exclusions for conditional access policies, the configuration also supports user or group exclusions related to Entra Id policy section 7 which is related to highly privileged user access. The `RoleExclusions` key supports both a `Users` and `Groups` list with each entry representing the UUID of a user or group from the tenant that will be excluded from the respective policy check.
+
+RoleExclusions are supported for the following policies:
+
+- MS.AAD.7.4v1
+
+### Security Suite Configuration
+
+The M365 Secure Configuration Security Suite Baseline includes several policies that help ensure an organization has configured protections for sensitive accounts and domains. The ScubaGear configuration file can be used along with policy-specific variables to inform the ScubaGear assessment checks which accounts and domains the organization considers sensitive.
+
+All Security Suite related policy-specific variables are found under the `SecuritySuite` configuration namespace key within the ScubaGear configuration file. SecuritySuite policy items with associated configuration variables are:
+
+- MS.SECURITYSUITE.2.1v1
+- MS.SECURITYSUITE.2.3v1
+
+Example Security Suite configuration:
+
+```yaml
+SecuritySuite:
+  MS.SECURITYSUITE.2.1v1:
+    SensitiveUsers:
+      - "jdoe@contoso.com"
+      - "jsmith@contoso.com"
+
+  MS.SECURITYSUITE.2.3v1:
+    PartnerDomains:
+      - "partner1.com"
+      - "contractor.org"
+```
+
+#### User impersonation protection
+
+The policy `MS.SECURITYSUITE.2.1v1` supports a variable called `SensitiveUsers` that can be defined as a list of sensitive user accounts denoted by a display name and email address in the impersonation protection section of anti-phishing policies.
+
+Each value should be one of the following:
+- An email address (e.g., `jdoe@example.com`)
+- A string in the form of the display name and email address separated by a semicolon (e.g.,`John Doe;jdoe@example.com`).
+
+#### Agency Partner Domain Impersonation
+
+The policy `MS.SECURTIYSUITE.2.3v1` supports a variable called `PartnerDomains` that can be defined as a list of sensitive DNS domains used by important partner organizations for which impersonation protection should be enabled in anti-phish policies.
+
+### Exchange Online Configuration
+
+The ScubaGear configuration file provides the capability to exclude specific domains from the MS.EXO.1.1v2 policy check.
+
+#### Automatic Forwarding to Remote Domains
+
+The policy `MS.EXO.1.1v2` supports a variable called `AllowedForwardingDomains` that expects a list of domain names for which automatic forwarding should be allowed.
+Each domain in the list should be given as the fully-qualified domain name.
+Exercise caution when allowing automatic forwarding to an external domain, as adversaries can use automatic forwarding to gain persistent access to a victim's email.
+
+Example Exchange Online configuration:
+
+```yaml
+Exo:
+  MS.EXO.1.1v2:
+    AllowedForwardingDomains:
+      - "trusted-partner.com"
+      - "subsidiary.contoso.com"
+```
+
+## Anchors and Aliases
+
+If YAML is chosen as the config file format, YAML [anchors and aliases](https://smcleod.net/2022/11/yaml-anchors-and-aliases/) can be used to avoid repeating policy values.
+Using anchors and aliases is optional, but supports reuse in a way that allows for updating variable values in a consistent way when they apply to multiple policies.
+
+## Muting the Version Check Warnings
+
+To prevent ScubaGear from trying to determine if a newer release is available and emitting a warning at import time, set the environment variable `SCUBAGEAR_SKIP_VERSION_CHECK` to any non-whitespace value.
